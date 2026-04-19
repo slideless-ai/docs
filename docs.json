@@ -59,6 +59,16 @@
             ]
           },
           {
+            "group": "CLI",
+            "pages": [
+              "cli/overview",
+              "cli/installation",
+              "cli/configuration",
+              "cli/auth",
+              "cli/commands"
+            ]
+          },
+          {
             "group": "Guides",
             "pages": [
               "guides/with-claude",
@@ -67,10 +77,15 @@
             ]
           },
           {
-            "group": "API Reference",
+            "group": "Marketplace Skills",
+            "pages": ["skills/overview"]
+          },
+          {
+            "group": "Advanced: HTTP API",
             "pages": [
               "api-reference/overview",
               "api-reference/authentication",
+              "api-reference/cli-auth",
               "api-reference/upload-presentation",
               "api-reference/update-presentation",
               "api-reference/list-presentations",
@@ -78,10 +93,6 @@
               "api-reference/get-shared-presentation",
               "api-reference/verify-api-key"
             ]
-          },
-          {
-            "group": "Marketplace Skills",
-            "pages": ["skills/overview"]
           }
         ]
       }

@@ -1,0 +1,107 @@
+---
+title: Installation
+description: Install the `slideless` CLI from npm and authenticate in under a minute.
+---
+
+## Prerequisites
+
+- **Node.js 20+** (check with `node --version`)
+- An email you can check (for the OTP flow) — or a `cko_` key already copied from the dashboard
+
+## Install
+
+<CodeGroup>
+
+```bash Global install
+npm install -g slideless
+slideless --version
+```
+
+```bash Per-project install
+npm install --save-dev slideless
+npx slideless --version
+```
+
+</CodeGroup>
+
+Global install puts `slideless` on your `PATH`. If `npm install -g` is blocked by your environment, `npx slideless ...` works for any command.
+
+## Authenticate
+
+<Tabs>
+  <Tab title="OTP (recommended)">
+
+Two commands and you're done. No dashboard visit, no key to paste. Works equally well for first-time signup and for returning users on a new machine.
+
+**First time — create an account:**
+
+```bash
+slideless auth signup-request --email you@example.com
+# check your inbox for the 6-digit code, then:
+slideless auth signup-complete --email you@example.com --code 123456
+```
+
+**Returning user on a new machine:**
+
+```bash
+slideless auth login-request --email you@example.com
+slideless auth login-complete --email you@example.com --code 123456
+```
+
+Output (same shape for both flows):
+
+```text
+✓ Signup complete    # or "Login complete"
+
+  Organization:  My Organization
+  Org ID:        4XYwOrZ8...
+  Profile:       my-organization (now active)
+  API key:       cko_xxxx...  (scopes: presentations:write, presentations:read)
+```
+
+The CLI saves a profile to `~/.config/slideless/config.json` (mode `0600`) and sets it active. See [`cli/auth`](/cli/auth) for the full flag reference (logo, brand colors, `--key-expires-in`, ...) and the complete error-code table.
+
+  </Tab>
+  <Tab title="Paste an existing key">
+
+If you already created a `cko_` key in the dashboard:
+
+1. Open [app.slideless.ai](https://app.slideless.ai) → **API Keys** (URL pattern: `/organizations/<orgId>/org/api-keys`)
+2. Click **Create API key**, name it (e.g. `my-laptop`), and select scopes `presentations:write` and `presentations:read`
+3. Copy the `cko_…` value — it's shown only once
+4. Run:
+
+```bash
+slideless login
+# paste the cko_ key when prompted (input is masked)
+```
+
+The CLI verifies the key against the backend and saves it as a profile:
+
+```text
+✓ Logged in successfully
+
+  Profile:      <derived-from-org-name> (active)
+  Organization: Your workspace
+  Key:          cko_xxxx...
+  Scopes:       presentations:write, presentations:read
+```
+
+  </Tab>
+</Tabs>
+
+## Verify
+
+```bash
+slideless verify
+```
+
+If this prints `✓ API key valid` with the expected scopes, you're done.
+
+## Upgrading
+
+```bash
+npm install -g slideless@latest
+```
+
+Profiles and credentials are preserved across upgrades — config lives in `~/.config/slideless/`, independent of the installed binary.

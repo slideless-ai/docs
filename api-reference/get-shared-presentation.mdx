@@ -3,6 +3,10 @@ title: "GET /getSharedPresentation/{shareId}"
 description: "Public endpoint that returns the raw HTML of a shared presentation, gated by an unguessable token in the URL"
 ---
 
+<Note>
+This is a public, token-gated endpoint used internally by the share viewer. There is no CLI equivalent because, in normal use, you don't fetch raw HTML yourself, you give recipients the share URL (`https://app.slideless.ai/share/{shareId}?token=...`) and the viewer loads it. Read this page only if you're embedding a deck in a custom iframe.
+</Note>
+
 ## When to use
 
 Fetch the raw HTML of a presentation. This is the endpoint the Slideless share viewer uses internally to load the deck into its iframe.

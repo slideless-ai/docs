@@ -3,6 +3,10 @@ title: "API overview"
 description: "Base URL, authentication, error format, and endpoint index for the Slideless HTTP API"
 ---
 
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling these endpoints directly. The CLI wraps every operation, handles auth, and offers stable JSON output via `--json`. This reference is for when you can't (or don't want to) use the CLI.
+</Note>
+
 ## Base URL
 
 ```
@@ -13,10 +17,10 @@ All endpoints are Cloud Functions in `europe-west1`. There is no API versioning 
 
 ## Authentication
 
-Every endpoint (except `getSharedPresentation`, which is token-based) requires the `X-Process-Manager-Key` header:
+Every endpoint (except `getSharedPresentation`, which is token-based) requires the `Authorization` header:
 
 ```
-X-Process-Manager-Key: cko_your_organization_api_key
+Authorization: Bearer cko_your_organization_api_key
 ```
 
 Two key formats are accepted:
@@ -61,8 +65,8 @@ The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: 
 |---|---|---|---|
 | [`/uploadSharedPresentation`](/api-reference/upload-presentation) | POST | API key | Create a new presentation |
 | [`/updateSharedPresentation`](/api-reference/update-presentation) | POST | API key | Replace HTML at an existing share (URL preserved) |
-| [`/listMyPresentationsPublic`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
-| [`/getSharedPresentationInfoPublic/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
+| [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
+| [`/getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
 | [`/getSharedPresentation/{shareId}`](/api-reference/get-shared-presentation) | GET | Token in URL | Public — returns the raw HTML; increments view counts |
 | [`/verifyApiKey`](/api-reference/verify-api-key) | POST | API key | Validate a key, return its metadata |
 
@@ -77,7 +81,7 @@ The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: 
 
 ## CORS
 
-All HTTP endpoints set `cors: true` — they accept browser requests from any origin. The auth header (`X-Process-Manager-Key`) is allowed.
+All HTTP endpoints set `cors: true` — they accept browser requests from any origin. The auth header (`Authorization`) is allowed.
 
 ## Idempotency
 
@@ -85,5 +89,5 @@ All HTTP endpoints set `cors: true` — they accept browser requests from any or
 
 ## Next
 
-- **[Authentication](/api-reference/authentication)** — How the `X-Process-Manager-Key` header works.
+- **[Authentication](/api-reference/authentication)** — How the `Authorization` header works.
 - **[Upload a presentation](/api-reference/upload-presentation)** — The most common endpoint, with examples in curl, Node, and Python.

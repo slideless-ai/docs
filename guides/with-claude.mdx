@@ -8,39 +8,46 @@ description: "Generate, share, and update presentations from Claude Code via the
 The [`slideless-marketplace`](https://github.com/slideless-ai/marketplace) is a Claude Code plugin that lets Claude:
 
 1. **Generate** a self-contained HTML presentation in a curated style.
-2. **Share** it — get back a public URL to send to anyone.
-3. **Update** an existing share in place — same URL, new content.
+2. **Share** it and get back a public URL to send to anyone.
+3. **Update** an existing share in place. Same URL, new content.
 4. **List** and **get** your shared presentations.
 5. **Export** to PDF locally if you need a file artifact.
 
-All published versions are fully self-contained — no Codika backend required for `generate-presentation` or `export-presentation-pdf`. The other skills call the Slideless HTTP API.
+The skills that publish, update, list, or fetch presentations all delegate to the [`slideless` CLI](/cli/overview). The CLI is the canonical interface; the skills wrap it so Claude can call it cleanly. Publish-side skills require the CLI installed and a profile saved via `slideless login`.
 
-## Step 1 — Install the plugin
+The `generate-presentation` and `export-presentation-pdf` skills are fully self-contained and do not call the backend.
 
-In Claude Code, install the plugin marketplace:
+## Step 1 — Install the CLI and the plugin
+
+Install the CLI once:
+
+```bash
+npm install -g slideless
+```
+
+Then install the marketplace plugin in Claude Code:
 
 ```bash
 claude plugin install slideless-ai/marketplace
 ```
 
-Once installed, all `slideless-*` skills are available in any Claude session.
+After install, every `slideless-*` skill is available in any Claude session.
 
-## Step 2 — Set up authentication
+## Step 2 — One-time setup skill
 
-Run the [`setup-slideless`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/setup-slideless/SKILL.md) skill once:
+Run [`setup-slideless`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/setup-slideless/SKILL.md):
 
 ```
 /skill setup-slideless
 ```
 
-It walks you through:
+The skill checks the CLI is installed, then picks one of three paths:
 
-1. Signing in to https://app.slideless.ai
-2. Creating an organization API key (scope `presentations:write`)
-3. Storing it in `~/.codika/.env` as `SLIDELESS_API_KEY=cko_...`
-4. Verifying the key with the [`verifyApiKey`](/api-reference/verify-api-key) endpoint
+- **OTP signup** (fresh account) — runs `slideless auth signup-request --email <you>`, prompts you for the 6-digit code emailed to you, then runs `slideless auth signup-complete`.
+- **OTP login** (existing account on a new machine) — runs the `login-request` / `login-complete` pair.
+- **Paste a key** (you already have a `cko_` from the dashboard) — runs `slideless login`.
 
-After this, every other slideless skill picks the key up automatically.
+At the end the key is saved to `~/.config/slideless/config.json` and every downstream skill authenticates automatically. See [`cli/auth`](/cli/auth) for the flow in detail.
 
 ## Step 3 — Generate and share
 
@@ -48,7 +55,7 @@ Two skills, used together:
 
 ```
 /skill generate-presentation
-> Topic: Q4 results — revenue, churn, headcount
+> Topic: Q4 results, revenue, churn, headcount
 > Style: full-deck (cinematic) or slim-tabbed (workshop)
 ```
 
@@ -60,7 +67,7 @@ Claude writes a self-contained HTML file (typically a few hundred KB) into your 
 > title: Q4 Results
 ```
 
-Claude calls [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) with the file's contents and prints the returned `shareUrl`. Send the URL to anyone — they open it in any browser.
+The skill runs `slideless share ./q4-results.html --title "Q4 Results" --json` and prints the returned `shareUrl`. Send the URL to anyone.
 
 ## Step 4 — Iterate and re-publish
 
@@ -72,7 +79,7 @@ Tweaks to the deck? Re-run the generator (or edit the HTML directly), then:
 > html_path: ./q4-results.html
 ```
 
-Calls [`POST /updateSharedPresentation`](/api-reference/update-presentation). The URL stays the same. Recipients refresh and see the new content. The view counter keeps incrementing from where it was.
+Runs `slideless update <shareId> ./q4-results.html`. The URL stays the same. Recipients refresh and see the new content. The view counter keeps incrementing from where it was.
 
 ## Step 5 — List and inspect
 
@@ -80,14 +87,14 @@ Calls [`POST /updateSharedPresentation`](/api-reference/update-presentation). Th
 /skill list-presentations
 ```
 
-Calls [`GET /listMyPresentationsPublic`](/api-reference/list-presentations) and prints all your decks with titles, versions, share URLs, and view counts.
+Runs `slideless list --json` and prints all your decks with titles, versions, share URLs, and view counts.
 
 ```
 /skill get-presentation
 > share_id: <a shareId>
 ```
 
-Calls [`GET /getSharedPresentationInfoPublic/<shareId>`](/api-reference/get-presentation) and prints the full metadata including each share token's individual access count and last-accessed time.
+Runs `slideless get <shareId> --json` and prints the full metadata, including each share token's individual access count and last-accessed time.
 
 ## Local PDF export
 
@@ -98,17 +105,18 @@ For users who need a file artifact (e.g. attach to an email):
 > html_path: ./q4-results.html
 ```
 
-Runs a local Puppeteer process that prints the HTML to a landscape PDF with print-friendly CSS injected. No backend call — purely local.
+Runs a local Puppeteer process that prints the HTML to a landscape PDF with print-friendly CSS injected. No backend call, purely local.
 
 ## Available skills (full list)
 
-See the [Marketplace Skills overview](/skills/overview) for the canonical list with descriptions and which API endpoint each one calls.
+See the [Marketplace Skills overview](/skills/overview) for the canonical list with descriptions and the CLI command each one wraps.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `401 unauthenticated` | `SLIDELESS_API_KEY` missing or wrong | Re-run `setup-slideless` |
-| `403 forbidden` on upload | Key missing `presentations:write` scope | Create a new key with the right scope |
-| `413 payload-too-large` | HTML > 10 MB | Slim down — inline fewer base64 images, drop unused JS |
+| `command not found: slideless` | CLI not installed | `npm install -g slideless` |
+| `unauthenticated` | Profile not saved or key revoked | Re-run `setup-slideless`, or `slideless auth login-request --email <you>` + `login-complete` |
+| `permission-denied` on share | Key missing `presentations:write` scope | Re-run `setup-slideless` (OTP-minted keys always have both scopes), or create a new dashboard key with the right scope and `slideless login` |
+| `payload-too-large` | HTML > 10 MB | Slim down: inline fewer base64 images, drop unused JS |
 | `404` when opening share URL | Token typo, presentation archived, or share ID wrong | Re-run `share-presentation` to get a fresh URL |

@@ -29,7 +29,7 @@ A single presentation can be shared with many people, each via their own token, 
 | Run an A/B test on send copy | Different tokens in different emails, compare `lastAccessedAt` |
 | Public version + private version | One default token, one revocable "guest" token |
 
-The `default` token is created automatically on upload. Add more from the dashboard's presentation detail page or via the `addPresentationToken` callable function.
+The `default` token is created automatically on upload (`slideless share` returns its `tokenId` and full URL). Add more from the dashboard's presentation detail page. To inspect every token's view counter from the terminal, run `slideless get <shareId>`.
 
 ## Lifecycle
 

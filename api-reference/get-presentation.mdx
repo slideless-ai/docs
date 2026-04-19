@@ -1,18 +1,22 @@
 ---
-title: "GET /getSharedPresentationInfoPublic/{shareId}"
+title: "GET /getSharedPresentationInfo/{shareId}"
 description: "Full metadata for a single presentation, including the list of share tokens with per-token access counts"
 ---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless get <shareId>` (or `slideless get <shareId> --json`).
+</Note>
 
 ## When to use
 
 Inspect one presentation in detail — full token list, per-token access counts, last-accessed timestamps, status. The owner of the presentation must match the API key's user.
 
-For a list of all your presentations, use [`GET /listMyPresentationsPublic`](/api-reference/list-presentations) instead.
+For a list of all your presentations, use [`GET /listMyPresentations`](/api-reference/list-presentations) instead.
 
 ## Endpoint
 
 ```
-GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfoPublic/{shareId}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfo/{shareId}
 ```
 
 The `shareId` is in the URL path.
@@ -21,7 +25,7 @@ The `shareId` is in the URL path.
 
 | Header | Value |
 |---|---|
-| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) — must belong to the presentation's owner |
+| `Authorization` | `cko_…` (or `cka_…`) — must belong to the presentation's owner |
 
 Recommended scope: `presentations:read`.
 
@@ -101,8 +105,8 @@ Each token entry:
 SHARE_ID="0192f1c3-..."
 
 curl -sS \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
-  "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfoPublic/$SHARE_ID"
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfo/$SHARE_ID"
 ```
 
 ### Node.js
@@ -111,8 +115,8 @@ curl -sS \
 const shareId = '0192f1c3-...';
 
 const res = await fetch(
-  `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfoPublic/${shareId}`,
-  { headers: { 'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY } }
+  `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfo/${shareId}`,
+  { headers: { 'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}` } }
 );
 
 const info = await res.json();
@@ -127,8 +131,8 @@ for (const t of info.tokens) {
 | Status | Code | Cause | Fix |
 |---|---|---|---|
 | `400` | `invalid-argument` | Missing `shareId` in path | Include the share ID after the slash |
-| `401` | `unauthenticated` | Missing or invalid API key | Set `X-Process-Manager-Key` |
+| `401` | `unauthenticated` | Missing or invalid API key | Set `Authorization` |
 | `403` | `permission-denied` | Key's user is not the owner | Use a key from the owner's account |
-| `404` | `not-found` | No presentation with that ID | Verify the ID via `listMyPresentationsPublic` |
+| `404` | `not-found` | No presentation with that ID | Verify the ID via `listMyPresentations` |
 | `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
 | `500` | `internal` | Backend error | Retry with backoff |

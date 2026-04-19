@@ -3,6 +3,10 @@ title: "POST /updateSharedPresentation"
 description: "Replace HTML at an existing share — same URL, view count preserved, version auto-bumped"
 ---
 
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless update <shareId> <path>`.
+</Note>
+
 ## When to use
 
 Re-publish a presentation. The `shareId` (and therefore every share URL) stays the same. The HTML in storage is overwritten. The `version` counter increments. View counts are preserved.
@@ -19,7 +23,7 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentati
 
 | Header | Value |
 |---|---|
-| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) — must belong to the presentation's owner |
+| `Authorization` | `cko_…` (or `cka_…`) — must belong to the presentation's owner |
 | `Content-Type` | `application/json` |
 
 Recommended scope: `presentations:write`.
@@ -81,7 +85,7 @@ Example:
 SHARE_ID="0192f1c3-..."
 
 curl -sS -X POST \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
   -H "Content-Type: application/json" \
   --data-binary @<(jq -Rs --arg id "$SHARE_ID" '{shareId: $id, html: .}' < ./deck-v2.html) \
   https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
@@ -99,7 +103,7 @@ const res = await fetch(
   {
     method: 'POST',
     headers: {
-      'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY,
+      'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ shareId: '0192f1c3-...', html })
@@ -115,9 +119,9 @@ console.log('Now at version', version);
 | Status | Code | Cause | Fix |
 |---|---|---|---|
 | `400` | `invalid-argument` | `shareId` or `html` missing or wrong type | Send both as strings |
-| `401` | `unauthenticated` | Missing or invalid API key | Set a valid `X-Process-Manager-Key` |
+| `401` | `unauthenticated` | Missing or invalid API key | Set a valid `Authorization` |
 | `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
-| `404` | `not-found` | No presentation with that `shareId` | Verify the ID — list with `listMyPresentationsPublic` |
+| `404` | `not-found` | No presentation with that `shareId` | Verify the ID — list with `listMyPresentations` |
 | `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
 | `410` | `archived` | Presentation has been archived | Cannot be updated; create a new one with `uploadSharedPresentation` |
 | `413` | `payload-too-large` | HTML > 10 MB | Slim down the deck |

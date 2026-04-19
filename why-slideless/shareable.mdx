@@ -1,6 +1,6 @@
 ---
-title: "Generate, share, update — from a terminal"
-description: "AI-generated HTML, one curl call to publish, one more to re-publish. The link never changes."
+title: "Generate, share, update from a terminal"
+description: "AI-generated HTML, one command to publish, one more to re-publish. The link never changes."
 ---
 
 ## The file-versioning trap
@@ -15,49 +15,48 @@ Q4_review_FINAL_v2.pptx
 Q4_review_FINAL_USE_THIS.pptx
 ```
 
-Each new version is a fresh file, a fresh email, a fresh attachment, and (probably) a different person opening the wrong one. Tools like Google Slides solve this with a single canonical URL — but only inside their ecosystem, and only if you're willing to log in.
+Each new version is a fresh file, a fresh email, a fresh attachment, and (probably) a different person opening the wrong one. Tools like Google Slides solve this with a single canonical URL, but only inside their ecosystem, and only if you're willing to log in.
 
 ## The Slideless loop
 
-Slideless gives you a single URL per deck — and lets you update what's behind it without ever changing the URL:
+Slideless gives you a single URL per deck and lets you update what's behind it without ever changing the URL:
 
 ```
 1. AI generates the HTML       (e.g. Claude with `generate-presentation`)
-2. You publish it              (one curl, or `share-presentation` skill)
+2. You publish it              (`slideless share ./deck.html --title "..."`)
    → returns shareUrl
 3. You share the URL           (Slack, email, anywhere)
 4. You iterate on the content  (Claude regenerates, you tweak)
-5. You re-publish              (one curl with the same shareId)
+5. You re-publish              (`slideless update <shareId> ./deck.html`)
    → same shareUrl, version + 1, view count preserved
-6. Recipients refresh           (they see the new content, no re-share)
+6. Recipients refresh          (they see the new content, no re-share)
 ```
 
 That's it. The URL you sent on Tuesday morning still works on Friday afternoon, even though the content has been edited five times in between.
 
 ## In a terminal
 
-Generate, share, and update — three commands:
+Generate, share, and update. Three commands:
 
 ```bash
 # Generate (with the Claude marketplace skill)
-$ claude --skill generate-presentation "Q4 results — revenue, churn, headcount" > deck.html
+$ claude --skill generate-presentation "Q4 results, revenue, churn, headcount" > deck.html
 
 # Publish
-$ curl -X POST https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation \
-    -H "X-Process-Manager-Key: cko_..." \
-    -H "Content-Type: application/json" \
-    -d "{\"title\":\"Q4 review\",\"html\":$(cat deck.html | jq -Rs .)}"
-# → { "shareUrl": "https://app.slideless.ai/share/abc123?token=..." }
+$ slideless share ./deck.html --title "Q4 review"
+✓ Presentation shared
 
-# Iterate, then re-publish (same shareId — URL doesn't change)
-$ curl -X POST https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation \
-    -H "X-Process-Manager-Key: cko_..." \
-    -H "Content-Type: application/json" \
-    -d "{\"shareId\":\"abc123\",\"html\":$(cat deck-v2.html | jq -Rs .)}"
-# → { "version": 2, "shareUrl": "https://app.slideless.ai/share/abc123?token=..." }
+  Share ID:  abc123
+  Share URL: https://app.slideless.ai/share/abc123?token=...
+
+# Iterate, then re-publish (same shareId, URL doesn't change)
+$ slideless update abc123 ./deck-v2.html
+✓ Presentation updated to v2
+
+  Share URL: https://app.slideless.ai/share/abc123?token=...
 ```
 
-Hook this into a CI pipeline, a Makefile, a cron job, or a Claude session. The same loop applies.
+Hook this into a CI pipeline, a Makefile, a cron job, or a Claude session. The same loop applies. Add `--json` for machine-readable output that's easy to pipe through `jq`.
 
 ## What stays stable across updates
 
@@ -79,7 +78,7 @@ The loop turns a deck from a **document** (a static artifact you send) into a **
 A few practical applications:
 
 - **Sales decks** that get personalized per-prospect (different `tokens` per recipient, different content updates).
-- **Product changelogs** that always live at the same URL — every release just re-publishes.
+- **Product changelogs** that always live at the same URL. Every release just re-publishes.
 - **Pitch decks** you tweak after each investor meeting, without recirculating.
 - **Workshop materials** that update mid-session as questions come up.
 
@@ -87,3 +86,4 @@ A few practical applications:
 
 - **[Update in place](/guides/updating-in-place)** — Detailed walkthrough of the re-publish flow.
 - **[Use with Claude](/guides/with-claude)** — Generate the HTML with the marketplace skills.
+- **[CLI overview](/cli/overview)** — Why the CLI is the way in.

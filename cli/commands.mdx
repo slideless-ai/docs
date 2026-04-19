@@ -1,0 +1,234 @@
+---
+title: Command Reference
+description: Every `slideless` command, with flags, examples, and expected output.
+---
+
+## Global flags
+
+These flags are accepted by every command that talks to the backend:
+
+| Flag | Purpose |
+|---|---|
+| `--api-key <key>` | Override the active profile's API key |
+| `--api-url <url>` | Override the backend base URL |
+| `--profile <name>` | Use a specific saved profile instead of the active one |
+| `--json` | Output a stable JSON shape for machine consumption |
+
+## Auth (OTP)
+
+Terminal-only signup and login. No browser, no dashboard. See [`cli/auth`](/cli/auth) for the full flag reference and error-code table.
+
+### `slideless auth signup-request`
+
+Email a 6-digit signup code to a brand-new address. Refuses (`USER_ALREADY_HAS_ORGANIZATION`) if the email already owns an organization.
+
+```bash
+slideless auth signup-request --email you@example.com
+slideless auth signup-request --email you@example.com --json
+```
+
+### `slideless auth signup-complete`
+
+Verify the code; create user, organization, and a `cko_` key; save it as the active profile.
+
+```bash
+# Minimal
+slideless auth signup-complete --email you@example.com --code 123456
+
+# Populate the organization at the same time
+slideless auth signup-complete \
+  --email you@example.com --code 123456 \
+  --company "Acme" --description "We make widgets" \
+  --brand-primary "#0a0a0a" --logo ./logo.png
+```
+
+### `slideless auth login-request`
+
+Email a login code to an existing account. Returns `USER_NOT_FOUND` / `USER_HAS_NO_ORGANIZATION` if there's nothing to log in to.
+
+```bash
+slideless auth login-request --email you@example.com
+```
+
+### `slideless auth login-complete`
+
+Verify the code; mint a fresh `cko_` key for the existing organization; save it as the active profile.
+
+```bash
+slideless auth login-complete --email you@example.com --code 123456
+slideless auth login-complete --email you@example.com --code 123456 \
+  --key-name "ci-runner" --key-expires-in 30
+```
+
+## Authentication
+
+### `slideless login`
+
+Save an API key and verify it against the backend. Alias of `slideless config set`.
+
+```bash
+slideless login                           # interactive prompt (masked input)
+slideless login --api-key cko_...         # non-interactive / CI
+slideless login --name work-org           # custom profile name
+slideless login --skip-verify             # save without calling the backend
+```
+
+### `slideless whoami`
+
+Show the currently authenticated identity. Calls `/verifyApiKey` for fresh data; falls back to cached profile data on network error.
+
+```bash
+slideless whoami
+slideless whoami --json
+```
+
+### `slideless verify`
+
+Focused identity check — prints `✓ API key valid` and exits 0 on success, nonzero on failure. Convenient for CI pipelines and troubleshooting.
+
+```bash
+slideless verify
+slideless verify --json
+```
+
+### `slideless use [name]`
+
+List saved profiles or switch the active one.
+
+```bash
+slideless use              # list profiles
+slideless use work-org     # switch to "work-org"
+slideless use --json       # machine-readable profile list
+```
+
+### `slideless logout [name]`
+
+Remove a profile. Without an argument, removes the active profile.
+
+```bash
+slideless logout
+slideless logout personal
+```
+
+## Presentations
+
+### `slideless share <path>`
+
+Upload an HTML file as a public presentation, or update an existing one in place with `--update <shareId>`.
+
+```bash
+slideless share ./deck.html --title "Q4 Pitch"
+slideless share ./deck.html --title "Q4 Pitch" --update 01a3b...
+cat deck.html | slideless share - --title "Piped demo"
+```
+
+**JSON output (create):**
+```json
+{
+  "success": true,
+  "data": {
+    "shareId": "01a3b...",
+    "tokenId": "01a3c...",
+    "token": "...",
+    "shareUrl": "https://..."
+  }
+}
+```
+
+**JSON output (update):**
+```json
+{
+  "success": true,
+  "data": { "shareId": "01a3b...", "version": 2, "shareUrl": "https://..." }
+}
+```
+
+### `slideless update <shareId> <path>`
+
+Replace the HTML at an existing share. Same URL, new content, version bumps, view count preserved.
+
+```bash
+slideless update 01a3b... ./deck-v2.html
+slideless update 01a3b... ./deck-v2.html --title "Q4 Pitch — v2"
+```
+
+### `slideless list`
+
+List your presentations (most recent first, capped at 100).
+
+```bash
+slideless list
+slideless list --json
+```
+
+### `slideless get <shareId>`
+
+Show full metadata for a single presentation, including per-token view counts.
+
+```bash
+slideless get 01a3b...
+slideless get 01a3b... --json
+```
+
+## Config
+
+### `slideless config show`
+
+List all saved profiles.
+
+```bash
+slideless config show
+slideless config show --json
+```
+
+### `slideless config set`
+
+Save a profile. Same behaviour as `slideless login`.
+
+### `slideless config clear`
+
+Remove config or a specific profile.
+
+```bash
+slideless config clear
+slideless config clear --profile work-org
+```
+
+## Error shape (`--json`)
+
+Every command returns this shape on failure:
+
+```json
+{
+  "success": false,
+  "status": 401,
+  "error": { "code": "unauthenticated", "message": "Invalid or missing API key." }
+}
+```
+
+Common `code` values (share / presentations):
+
+| Code | Meaning |
+|---|---|
+| `unauthenticated` | Missing or invalid API key |
+| `permission-denied` | Key valid but lacks the required scope, or not the resource owner |
+| `not-found` | The `shareId` doesn't exist |
+| `archived` | Tried to update a presentation that's been archived |
+| `payload-too-large` | HTML exceeds the 10 MB limit |
+| `network-error` | Couldn't reach the backend |
+| `internal` | Backend 5xx |
+
+Additional codes for the [OTP auth flow](/cli/auth) (`slideless auth ...`):
+
+| Code | Meaning | `nextAction` |
+|---|---|---|
+| `USER_ALREADY_HAS_ORGANIZATION` | Signup email already owns an org | Switch to `login-request` |
+| `USER_NOT_FOUND` / `USER_HAS_NO_ORGANIZATION` | Login email has no account (or no org yet) | Switch to `signup-request` |
+| `OTP_RESEND_COOLDOWN` | Called `-request` twice within 30 s | Wait `details.retryInSeconds`, retry |
+| `OTP_EXPIRED` / `OTP_NOT_FOUND` / `OTP_ALREADY_USED` / `OTP_LOCKED_OUT` | Code is stale or bad | Run the matching `-request` again |
+| `OTP_INVALID` | Wrong 6 digits | `details.attemptsRemaining` shows how many tries remain |
+| `OTP_PURPOSE_MISMATCH` | Signup code used for login (or vice versa) | Run the matching `-request` |
+| `LOGO_TOO_LARGE` / `LOGO_INVALID_FORMAT` / `LOGO_DECODE_FAILED` | Logo rejected | Use a PNG/JPEG/WebP/SVG under 2 MB |
+| `BRAND_COLOR_INVALID` / `COMPANY_NAME_TOO_LONG` / `INVALID_EXPIRES_IN_DAYS` | Optional-field validation | Adjust or omit the flag |
+
+Every OTP error includes a `nextAction` string designed to be acted on programmatically (e.g. `jq -r '.error.nextAction'`).

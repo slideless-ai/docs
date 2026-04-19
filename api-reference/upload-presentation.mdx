@@ -3,6 +3,10 @@ title: "POST /uploadSharedPresentation"
 description: "Upload an HTML presentation and get back a public share URL"
 ---
 
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless share <path> --title "..."`.
+</Note>
+
 ## When to use
 
 Create a new presentation. Returns a fresh `shareId`, one auto-generated share token, and a public `shareUrl`.
@@ -19,7 +23,7 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentati
 
 | Header | Value |
 |---|---|
-| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) |
+| `Authorization` | `cko_…` (or `cka_…`) |
 | `Content-Type` | `application/json` |
 
 Recommended scope: `presentations:write`.
@@ -66,7 +70,7 @@ Example:
 
 ```bash
 curl -sS -X POST \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
   -H "Content-Type: application/json" \
   --data-binary @<(jq -Rs --arg title "Q4 review" '{html: ., title: $title}' < ./deck.html) \
   https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation
@@ -84,7 +88,7 @@ const res = await fetch(
   {
     method: 'POST',
     headers: {
-      'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY,
+      'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ title: 'Q4 review', html })
@@ -104,7 +108,7 @@ with open('deck.html', 'r', encoding='utf-8') as f:
 
 res = requests.post(
     'https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation',
-    headers={'X-Process-Manager-Key': os.environ['SLIDELESS_API_KEY']},
+    headers={'Authorization': f"Bearer {os.environ['SLIDELESS_API_KEY']}"},
     json={'title': 'Q4 review', 'html': html}
 )
 res.raise_for_status()
@@ -116,7 +120,7 @@ print(res.json()['shareUrl'])
 | Status | Code | Cause | Fix |
 |---|---|---|---|
 | `400` | `invalid-argument` | `html` or `title` missing or not a string | Include both fields, both as strings |
-| `401` | `unauthenticated` | Missing or invalid API key | Set `X-Process-Manager-Key` to a valid `cko_…` |
+| `401` | `unauthenticated` | Missing or invalid API key | Set `Authorization` to a valid `cko_…` |
 | `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
 | `413` | `payload-too-large` | HTML > 10 MB | Slim down the deck (inline fewer images, drop unused JS) |
 | `500` | `internal` | Backend error | Retry with exponential backoff |
@@ -130,4 +134,4 @@ print(res.json()['shareUrl'])
 ## Next
 
 - **[POST /updateSharedPresentation](/api-reference/update-presentation)** — Replace HTML at the same URL.
-- **[GET /listMyPresentationsPublic](/api-reference/list-presentations)** — List everything you've uploaded.
+- **[GET /listMyPresentations](/api-reference/list-presentations)** — List everything you've uploaded.

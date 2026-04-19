@@ -5,43 +5,55 @@ description: "Host and share self-contained HTML presentations with public links
 
 ## Overview
 
-Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. You upload the HTML through an API call (or a Claude Code skill), get back a link, and share it. Anyone with the link opens the presentation in any browser — no install, no login, no app account.
+Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. You upload the HTML with one CLI command, get back a link, and share it. Anyone with the link opens the presentation in any browser. No install, no login, no app account.
 
-The product solves a specific problem: **presentation files are heavy, locked to specific apps, and lose information the moment you send them**. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless turns the deck into a hosted page — a URL you can drop into Slack, paste into an email, or post on a website.
+The product solves a specific problem: presentation files are heavy, locked to specific apps, and lose information the moment you send them. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless turns the deck into a hosted page, a URL you can drop into Slack, paste into an email, or post on a website.
 
-## How it works
+## How you use it
 
+The primary way to interact with Slideless is the [`slideless` CLI](/cli/overview):
+
+```bash
+npm install -g slideless
+slideless auth signup-request --email you@example.com
+slideless auth signup-complete --email you@example.com --code 123456
+slideless share ./deck.html --title "Q4 Pitch"
 ```
-Your HTML file (10 MB max, self-contained)
-  → POST /uploadSharedPresentation (X-Process-Manager-Key)
-    → Slideless (stores HTML in GCS, generates random share token)
-      → Public share URL: https://app.slideless.ai/share/{shareId}?token={...}
-        → Recipients open in any browser
-          → View counts tracked per token
+
+You get back a `shareUrl`. Send it to anyone. They open it in any browser.
+
+Signup happens from the terminal via a one-time code emailed to you. No dashboard round-trip required. If you already have a key, `slideless login` accepts it directly; see the [quickstart](/quickstart) for both paths.
+
+To update the deck without changing the URL:
+
+```bash
+slideless update <shareId> ./deck.html
 ```
 
-When you upload:
+Same URL, new content, view counts preserved.
+
+## What happens behind the scenes
 
 1. The HTML is stored in private cloud storage (Google Cloud Storage, region `europe-west1`).
 2. A Firestore record is created with metadata, the owner, and an unguessable 384-bit share token.
 3. You get back a `shareUrl` you can share anywhere.
-4. Recipients open the URL — Slideless serves your HTML inside a thin viewer chrome (card border, fullscreen toggle, download menu, footer).
+4. Recipients open the URL. Slideless serves your HTML inside a thin viewer chrome (card border, fullscreen toggle, download menu, footer).
 5. Each view increments a per-token counter so you can see who's looking.
 
 ## What you can do
 
 | Capability | How |
 |---|---|
-| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation` → `share-presentation`) |
-| Upload from a script or CI pipeline | One curl call to `POST /uploadSharedPresentation` |
-| Update a published deck without breaking the link | `POST /updateSharedPresentation` — same URL, view count preserved, version auto-bumped |
-| Track who's viewing | `totalViews` per presentation, `accessCount` per share token |
-| Send different links to different recipients | Multiple named tokens per presentation, revoke any individually |
+| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation`, `share-presentation`) call the CLI under the hood |
+| Upload from a script or CI pipeline | `slideless share ./deck.html --title "..."` (one command, JSON output via `--json`) |
+| Update a published deck without breaking the link | `slideless update <shareId> ./deck.html`. Same URL, view count preserved, version auto-bumped |
+| Track who's viewing | `slideless list` for totals, `slideless get <shareId>` for per-token counts |
+| Send different links to different recipients | Multiple named tokens per presentation, manage from the dashboard |
 | Manage everything from a UI | Dashboard at https://app.slideless.ai |
 
 ## What Slideless is not
 
-- **Not a slide editor.** You bring the HTML — Slideless hosts and shares it. Use Claude (or Reveal.js, or hand-written HTML, or any AI generator) to author.
+- **Not a slide editor.** You bring the HTML. Slideless hosts and shares it. Use Claude (or Reveal.js, or hand-written HTML, or any AI generator) to author.
 - **Not a PowerPoint converter.** Upload `.html`, not `.pptx`.
 - **Not a CMS.** It's purpose-built for one thing: making a deck shareable as a URL.
 
@@ -49,13 +61,15 @@ When you upload:
 
 | Layer | What it does |
 |---|---|
-| **Public viewer** | https://app.slideless.ai/share/[shareId] — renders any HTML inside a sandboxed iframe with our chrome |
-| **Dashboard** | https://app.slideless.ai — sign in, browse presentations, create API keys, manage share tokens |
-| **HTTP API** | Cloud Functions in `europe-west1` — upload, update, list, get, verify-key endpoints |
-| **Marketplace skills** | Claude Code plugin at https://github.com/slideless-ai/marketplace — `generate-presentation`, `share-presentation`, `update-presentation`, etc. |
+| **CLI** | `slideless` npm package, the primary interface to every operation |
+| **Public viewer** | https://app.slideless.ai/share/[shareId] renders any HTML inside a sandboxed iframe with viewer chrome |
+| **Dashboard** | https://app.slideless.ai for sign in, browse presentations, create API keys, manage share tokens |
+| **HTTP API** | Cloud Functions in `europe-west1` (the CLI wraps these; see [Advanced: HTTP API](/api-reference/overview) if you need to call them directly) |
+| **Marketplace skills** | Claude Code plugin at https://github.com/slideless-ai/marketplace. Skills delegate to the CLI |
 
 ## Next steps
 
 - **[Quickstart](/quickstart)** — Upload your first presentation in five minutes.
+- **[CLI overview](/cli/overview)** — Why the CLI is the recommended way in.
 - **[Why Slideless](/why-slideless/portable)** — The case for HTML over PowerPoint.
-- **[API Reference](/api-reference/overview)** — Every endpoint with request/response schemas.
+- **[Advanced: HTTP API](/api-reference/overview)** — Raw endpoint reference for when you can't use the CLI.

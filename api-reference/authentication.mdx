@@ -1,17 +1,19 @@
 ---
 title: "Authentication"
-description: "How the X-Process-Manager-Key header authenticates Slideless API requests"
+description: "How the `Authorization: Bearer` header authenticates Slideless API requests"
 ---
+
+<Note>
+If you're not building against the raw HTTP API directly, use the [CLI](/cli/overview) instead — it handles authentication for you via `slideless login`.
+</Note>
 
 ## The header
 
-Every Slideless API endpoint (except the public token-based [`getSharedPresentation`](/api-reference/get-shared-presentation)) requires a single header:
+Every Slideless API endpoint (except the public token-based [`getSharedPresentation`](/api-reference/get-shared-presentation)) authenticates via the standard bearer token header:
 
 ```
-X-Process-Manager-Key: cko_your_key_here
+Authorization: Bearer cko_your_key_here
 ```
-
-This is **not** `Authorization: Bearer …`. The Slideless backend only checks `X-Process-Manager-Key`.
 
 ## Key prefixes
 
@@ -29,7 +31,10 @@ Anything else returns `401`.
 
 ## Getting a key
 
-See [Quickstart Step 2](/quickstart) and the [API keys concept](/concepts/api-keys) — keys are created in the dashboard at **Organization → API Keys**.
+Two paths:
+
+- **Terminal / OTP** (recommended for CI and agents) — `POST /cliRequestSignupOtp` then `POST /cliCompleteSignup` (or the login variants). No browser round-trip. See [CLI auth endpoints](/api-reference/cli-auth) or the CLI wrapper at [`cli/auth`](/cli/auth).
+- **Dashboard** — create a key at **Organization → API Keys** in [app.slideless.ai](https://app.slideless.ai). Same [API keys concept](/concepts/api-keys) either way; the OTP flow just automates the creation.
 
 Pick scopes when creating:
 
@@ -38,15 +43,21 @@ Pick scopes when creating:
 | `presentations:write` | Endpoints that create or modify presentations (upload, update) |
 | `presentations:read` | Endpoints that read presentations (list, get) |
 
-Scope enforcement is intent-based in v1: pick the scope that matches your use case; future versions will reject calls that mismatch.
+Keys minted through the OTP flow are granted both scopes by default.
 
 ## Verifying a key
 
-Use [`POST /verifyApiKey`](/api-reference/verify-api-key) to check a key without making a destructive call:
+The CLI way:
+
+```bash
+slideless verify
+```
+
+The raw HTTP way:
 
 ```bash
 curl -X POST \
-  -H "X-Process-Manager-Key: cko_..." \
+  -H "Authorization: Bearer cko_..." \
   https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey
 ```
 
@@ -57,7 +68,7 @@ curl -X POST \
 
 | Status | Code | What it means | Fix |
 |---|---|---|---|
-| `401` | `unauthenticated` | Header missing or key not recognized | Send `X-Process-Manager-Key` with a valid `cko_` or `cka_` value |
+| `401` | `unauthenticated` | Header missing or key not recognized | Send `Authorization: Bearer <cko_…>` with a valid value |
 | `403` | `permission-denied` | Key valid but you don't own the resource | The key's user must match the presentation's `ownerId` |
 | `403` | `revoked` | Key was revoked | Create a new key |
 
@@ -70,4 +81,4 @@ Slideless stores a SHA-256 hash of every API key, not the raw value. The dashboa
 - **Treat keys as secrets** — don't commit, paste, or log them.
 - **One key per integration** — easier to rotate, easier to attribute usage.
 - **Set `lastUsedAt` reminders** — long-unused keys are good revocation candidates.
-- **Use `verifyApiKey`** at the start of any long-running script so you fail fast on auth issues.
+- **Use `slideless verify`** at the start of any long-running script so you fail fast on auth issues.

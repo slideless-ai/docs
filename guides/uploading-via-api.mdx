@@ -1,124 +1,84 @@
 ---
-title: "Upload via API"
-description: "Publish a presentation from a script, CI pipeline, or any HTTP client"
+title: "Upload from a script or CI"
+description: "Publish a presentation from a script, CI pipeline, or any non-interactive context with the slideless CLI"
 ---
 
 ## When to use this
 
-You want to upload a presentation from somewhere other than the dashboard or a Claude session — for example:
+You want to upload a presentation from somewhere other than the dashboard or a Claude session. For example:
 
 - A CI/CD job that publishes a release deck on every tag
 - A cron task that re-publishes a daily metrics deck
 - Any custom integration
 
-The skill-based path is documented in [Use Slideless with Claude](/guides/with-claude). This guide is the raw HTTP version.
+The interactive path is documented in [Use Slideless with Claude](/guides/with-claude). This guide is the script-friendly path.
 
 ## Prerequisites
 
+- Node.js 20+ on the runner
 - An **organization API key** with `presentations:write` (see [API keys](/concepts/api-keys))
 - The HTML you want to share, ≤ 10 MB
-- A way to make HTTPS POST requests (curl, Node, Python — any will do)
 
-## Endpoint
-
-```
-POST https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation
-```
-
-Headers:
-
-| Header | Value |
-|---|---|
-| `X-Process-Manager-Key` | Your `cko_…` API key |
-| `Content-Type` | `application/json` |
-
-Body:
-
-```json
-{
-  "title": "Display title (required)",
-  "html": "<!doctype html><html>... full HTML ..."
-}
-```
-
-Response (200):
-
-```json
-{
-  "shareId": "0192f1c3-...",
-  "tokenId": "0192f1c3-...",
-  "token": "AbCdEf...384-bit-base64url...",
-  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
-}
-```
-
-Full reference: [`POST /uploadSharedPresentation`](/api-reference/upload-presentation).
-
-## curl
+## Install the CLI on the runner
 
 ```bash
-SLIDELESS_API_KEY="cko_your_key_here"
-TITLE="My Q4 deck"
-HTML_PATH="./deck.html"
-
-curl -sS -X POST \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
-  -H "Content-Type: application/json" \
-  --data-binary @<(jq -Rs --arg title "$TITLE" '{html: ., title: $title}' < "$HTML_PATH") \
-  https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation
+npm install -g slideless
 ```
 
-The `jq -Rs` reads the file as a single JSON-escaped string. Don't try to inline raw HTML into a JSON payload — quotes and backslashes will break it.
+If global install is awkward in your CI environment, use `npx slideless ...` instead. It works identically.
 
-## Node.js
+## Authenticate non-interactively
 
-```js
-import { readFile } from 'node:fs/promises';
+In CI, pass the key through an environment variable. The CLI reads `SLIDELESS_API_KEY` automatically when no profile is configured:
 
-const apiKey = process.env.SLIDELESS_API_KEY;
-const html = await readFile('./deck.html', 'utf-8');
+```bash
+export SLIDELESS_API_KEY="cko_your_key_here"
+```
 
-const res = await fetch(
-  'https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation',
-  {
-    method: 'POST',
-    headers: {
-      'X-Process-Manager-Key': apiKey,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ title: 'My Q4 deck', html })
+Or save it to a profile in non-interactive mode:
+
+```bash
+slideless login --api-key "$SLIDELESS_API_KEY" --name ci
+```
+
+## Publish
+
+```bash
+slideless share ./deck.html --title "Q4 review" --json
+```
+
+Output (`--json`):
+
+```json
+{
+  "success": true,
+  "data": {
+    "shareId": "0192f1c3-...",
+    "tokenId": "0192f1c3-...",
+    "token": "AbCdEf...",
+    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
   }
-);
-
-if (!res.ok) {
-  throw new Error(`Upload failed: ${res.status} ${await res.text()}`);
 }
-
-const { shareUrl } = await res.json();
-console.log('Published:', shareUrl);
 ```
 
-## Python
+Pipe through `jq` to extract the share URL:
 
-```python
-import os, json, requests
-
-api_key = os.environ['SLIDELESS_API_KEY']
-with open('deck.html', 'r', encoding='utf-8') as f:
-    html = f.read()
-
-res = requests.post(
-    'https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation',
-    headers={
-        'X-Process-Manager-Key': api_key,
-        'Content-Type': 'application/json'
-    },
-    data=json.dumps({'title': 'My Q4 deck', 'html': html})
-)
-res.raise_for_status()
-
-print('Published:', res.json()['shareUrl'])
+```bash
+SHARE_URL=$(slideless share ./deck.html --title "Q4 review" --json | jq -r '.data.shareUrl')
+echo "Published: $SHARE_URL"
 ```
+
+The exit code is non-zero on failure, so the CI step fails fast if the upload errors. Inspect `.error.code` for a stable machine-readable reason.
+
+## Re-publish to the same URL
+
+Save the `shareId` somewhere durable (a CI variable, a file in the repo, a secret store). Then:
+
+```bash
+slideless update "$SHARE_ID" ./deck.html --json
+```
+
+See [Update a presentation in place](/guides/updating-in-place) for the full pattern.
 
 ## Two URLs, two purposes
 
@@ -126,23 +86,37 @@ Don't confuse the **share URL** (what you give recipients) with the **fetch URL*
 
 | Purpose | URL | When |
 |---|---|---|
-| **Share URL** — recipients open this | `https://app.slideless.ai/share/{shareId}?token={token}` | What `uploadSharedPresentation` returns; what you send people |
-| **Fetch URL** — raw HTML | `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}?token={token}` | Used internally by the share viewer iframe; you rarely need this |
+| **Share URL** for recipients | `https://app.slideless.ai/share/{shareId}?token={token}` | What `slideless share` returns. Send this to people. |
+| **Fetch URL** for raw HTML | `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}?token={token}` | Used internally by the share viewer iframe. You rarely need this. |
 
 If you embed the deck in an iframe yourself, use the fetch URL (it returns `text/html`). For everything else, use the share URL.
 
 ## Errors
 
-| Status | Code | Meaning |
-|---|---|---|
-| `400` | `invalid-argument` | Missing `html` or `title` field |
-| `401` | `unauthenticated` | Missing or invalid API key |
-| `403` | `forbidden` | Key lacks `presentations:write` scope |
-| `405` | `method-not-allowed` | Use POST |
-| `413` | `payload-too-large` | HTML exceeds 10 MB |
-| `500` | `internal` | Backend error — retry with exponential backoff |
+The CLI maps backend HTTP statuses to short codes. Common ones for upload:
+
+| `code` | Meaning |
+|---|---|
+| `unauthenticated` | Missing or invalid key |
+| `permission-denied` | Key valid but missing `presentations:write` |
+| `payload-too-large` | HTML exceeds 10 MB |
+| `internal` | Backend 5xx; retry with backoff |
+
+## Without the CLI
+
+If you cannot install Node on the runner, hit the HTTP API directly. Reference: [`POST /uploadSharedPresentation`](/api-reference/upload-presentation).
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @<(jq -Rs --arg title "Q4 review" '{html: ., title: $title}' < ./deck.html) \
+  https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation
+```
+
+The `jq -Rs` reads the file as a single JSON-escaped string. Don't try to inline raw HTML into a JSON payload, quotes and backslashes will break it.
 
 ## Next
 
 - **[Update in place](/guides/updating-in-place)** — Re-publish without changing the URL.
-- **[Full API reference](/api-reference/upload-presentation)** — Field-by-field details.
+- **[CLI command reference](/cli/commands)** — Every command and flag.

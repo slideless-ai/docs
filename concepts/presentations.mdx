@@ -11,7 +11,7 @@ A **presentation** is a Slideless record that wraps:
 - One or more **share tokens** (see [Share tokens](/concepts/share-tokens))
 - Metadata: title, version, owner, timestamps, view counters
 
-You create a presentation by uploading HTML through the [`uploadSharedPresentation`](/api-reference/upload-presentation) endpoint or by creating one in the dashboard.
+You create a presentation by running `slideless share <path>` or by creating one in the dashboard. Under the hood the CLI calls the [`uploadSharedPresentation`](/api-reference/upload-presentation) endpoint.
 
 ## Anatomy
 
@@ -42,9 +42,9 @@ archived (viewers see 404; can still inspect from the dashboard for audit)
 
 | Transition | How |
 |---|---|
-| Create | `POST /uploadSharedPresentation` (API) or "New presentation" in the dashboard |
-| Update | `POST /updateSharedPresentation` (API) or "Update" in the dashboard |
-| Archive | "Archive" in the dashboard — soft-delete, all share links stop resolving |
+| Create | `slideless share ./deck.html --title "..."` (or "New presentation" in the dashboard) |
+| Update | `slideless update <shareId> ./deck.html` (or "Update" in the dashboard) |
+| Archive | "Archive" in the dashboard. Soft-delete, all share links stop resolving |
 
 Once archived, a presentation cannot be updated. There is no un-archive in v1.
 
@@ -56,7 +56,7 @@ The HTML lives in a private GCS bucket (`slideless-ai-storage`) at the path:
 shared_presentations/{shareId}/document.html
 ```
 
-You never deal with this path directly — Slideless serves the HTML through the [`getSharedPresentation`](/api-reference/get-shared-presentation) endpoint after token validation.
+You never deal with this path directly. Slideless serves the HTML through the [`getSharedPresentation`](/api-reference/get-shared-presentation) endpoint after token validation, and the share viewer at `https://app.slideless.ai/share/{shareId}?token=...` wraps it with the viewer chrome.
 
 ## Size limits
 

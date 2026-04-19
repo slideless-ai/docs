@@ -1,0 +1,321 @@
+---
+title: "CLI auth endpoints"
+description: "HTTP endpoints that back the terminal-based OTP signup and login flow: `/cliRequestSignupOtp`, `/cliCompleteSignup`, `/cliRequestLoginOtp`, `/cliCompleteLogin`"
+---
+
+<Note>
+If you're not building a client, use [`slideless auth ...`](/cli/auth) — it wraps these endpoints, handles `--json`, and saves the resulting `cko_` key as a local profile.
+</Note>
+
+## Overview
+
+| Endpoint | Purpose | Auth |
+|---|---|---|
+| `POST /cliRequestSignupOtp` | Email a signup OTP to a brand-new email | Public (no Authorization header) |
+| `POST /cliCompleteSignup` | Verify the OTP, create user + org + API key | Public |
+| `POST /cliRequestLoginOtp` | Email a login OTP to an existing account | Public |
+| `POST /cliCompleteLogin` | Verify the OTP, mint a fresh API key | Public |
+
+Base URL: `https://europe-west1-slideless-ai.cloudfunctions.net/`
+
+All four endpoints return the same discriminated-union shape:
+
+```json
+{ "success": true,  "data": { ... } }
+{ "success": false, "error": { "code": "...", "message": "...", "nextAction": "...", "details": { ... } } }
+```
+
+HTTP status mirrors the error category: `400` for validation, `404` for missing user/code, `409` for state conflicts, `410` for expired code, `429` for rate limits, `500` for internals.
+
+## Common rules
+
+- **Resend cooldown**: the `-request` endpoints reject with `OTP_RESEND_COOLDOWN` if called twice within 30 seconds for the same email.
+- **Abuse caps**: 20 requests per email per hour, 60 per IP per hour, across both signup and login.
+- **Code lifetime**: 10 minutes. 5 bad attempts locks the code out.
+- **Purpose isolation**: a code issued for signup cannot be consumed by `cliCompleteLogin` (and vice versa) — returns `OTP_PURPOSE_MISMATCH`.
+
+---
+
+## POST /cliRequestSignupOtp
+
+### When to use
+
+Brand-new user; no Slideless account yet. Pre-flight check: if a Firebase Auth user already exists for the email **and** has ≥1 organization, the request returns `USER_ALREADY_HAS_ORGANIZATION` — the client should switch to `/cliRequestLoginOtp`.
+
+### Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/cliRequestSignupOtp
+```
+
+### Request body
+
+```json
+{ "email": "you@example.com" }
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `email` | string | yes | Lowercased server-side for rate-limit keying |
+
+### Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "email": "you@example.com",
+    "expiresInSeconds": 600
+  }
+}
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash curl
+curl -sS -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com"}' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/cliRequestSignupOtp
+```
+
+```js Node.js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/cliRequestSignupOtp',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'you@example.com' }),
+  },
+);
+const body = await res.json();
+if (!body.success) throw new Error(body.error.message);
+```
+
+</CodeGroup>
+
+### Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `EMAIL_REQUIRED` / `EMAIL_INVALID` | Missing or malformed `email` |
+| 429 | `OTP_RESEND_COOLDOWN` | Called again within 30 s; `details.retryInSeconds` set |
+| 429 | `EMAIL_RATE_LIMITED` / `IP_RATE_LIMITED` | Abuse caps hit |
+| 409 | `USER_ALREADY_HAS_ORGANIZATION` | Switch to `/cliRequestLoginOtp` |
+
+---
+
+## POST /cliCompleteSignup
+
+### When to use
+
+Second half of signup. Consumes the emailed code, creates the Firebase Auth user (if missing), creates a `users/{uid}` doc, creates a single-owner organization, optionally uploads the logo to GCS, mints a `cko_` API key with full presentation scopes, and returns the raw key.
+
+### Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/cliCompleteSignup
+```
+
+### Request body
+
+```json
+{
+  "email": "you@example.com",
+  "code": "123456",
+  "company": {
+    "name": "Acme",
+    "description": "We make widgets",
+    "brandPrimary": "#0a0a0a",
+    "brandSecondary": "#888888",
+    "brandAccent": "#e53935",
+    "tone": "Pragmatic, concise, a bit dry"
+  },
+  "logo": {
+    "data": "<base64-encoded bytes>",
+    "contentType": "image/png"
+  },
+  "apiKey": {
+    "name": "CI",
+    "expiresInDays": 30
+  }
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `email`, `code` | yes | 6-digit numeric code from the OTP email |
+| `company.name` | no | Defaults to `"My Organization"`. Max 100 chars |
+| `company.description`, `company.tone` | no | Free text |
+| `company.brandPrimary` / `brandSecondary` / `brandAccent` | no | 6-digit hex, with or without leading `#` |
+| `logo.data` | no | Base64-encoded bytes, max 2 MB decoded |
+| `logo.contentType` | no | `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` |
+| `apiKey.name` | no | Defaults to `"CLI default key"` |
+| `apiKey.expiresInDays` | no | 1–365; omit for no expiration |
+
+### Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "organizationId": "4XYwOrZ8QMyyELm1310R",
+    "organizationName": "Acme",
+    "apiKey": {
+      "keyId": "019da6...",
+      "raw": "cko_O_Q8...",
+      "keyPrefix": "cko_O_Q8",
+      "name": "CLI default key",
+      "scopes": ["presentations:write", "presentations:read"],
+      "createdAt": "2026-04-19T14:21:03.000Z"
+    },
+    "isNewUser": true
+  }
+}
+```
+
+`apiKey.raw` is only returned in this single response — the server stores a SHA-256 hash.
+
+### Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `EMAIL_REQUIRED` / `OTP_INVALID` | Missing/malformed inputs |
+| 400 | `COMPANY_NAME_TOO_LONG` / `BRAND_COLOR_INVALID` | Optional fields failed validation |
+| 400 | `LOGO_TOO_LARGE` / `LOGO_INVALID_FORMAT` / `LOGO_DECODE_FAILED` | Logo rejected |
+| 400 | `INVALID_EXPIRES_IN_DAYS` | `apiKey.expiresInDays` outside 1–365 |
+| 404 | `OTP_NOT_FOUND` | No pending code; run `/cliRequestSignupOtp` first |
+| 410 | `OTP_EXPIRED` | > 10 min old |
+| 409 | `OTP_ALREADY_USED` / `OTP_PURPOSE_MISMATCH` | Request a new signup code |
+| 429 | `OTP_LOCKED_OUT` | 5 failed attempts; request a fresh code |
+| 409 | `USER_ALREADY_HAS_ORGANIZATION` | Happened in the race window; switch to login |
+| 500 | `INTERNAL` | Retry; contact support if persistent |
+
+---
+
+## POST /cliRequestLoginOtp
+
+### When to use
+
+Existing user on a new machine (or with a revoked key). Pre-flight check: if the email has no Firebase Auth user, returns `USER_NOT_FOUND`; if it exists but has no organization, returns `USER_HAS_NO_ORGANIZATION`. Both push the client back to `/cliRequestSignupOtp`.
+
+### Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/cliRequestLoginOtp
+```
+
+### Request body
+
+```json
+{ "email": "you@example.com" }
+```
+
+### Response (200)
+
+Same shape as `/cliRequestSignupOtp`:
+
+```json
+{
+  "success": true,
+  "data": { "email": "you@example.com", "expiresInSeconds": 600 }
+}
+```
+
+### Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `EMAIL_REQUIRED` / `EMAIL_INVALID` | Missing or malformed |
+| 429 | `OTP_RESEND_COOLDOWN` / `EMAIL_RATE_LIMITED` / `IP_RATE_LIMITED` | Rate limits |
+| 404 | `USER_NOT_FOUND` | No account; switch to signup |
+| 409 | `USER_HAS_NO_ORGANIZATION` | Switch to signup |
+
+---
+
+## POST /cliCompleteLogin
+
+### When to use
+
+Consume a login OTP and mint a fresh `cko_` key for the account's existing organization.
+
+### Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/cliCompleteLogin
+```
+
+### Request body
+
+```json
+{
+  "email": "you@example.com",
+  "code": "123456",
+  "apiKey": { "name": "CI", "expiresInDays": 30 }
+}
+```
+
+`apiKey` is optional (same defaults as `/cliCompleteSignup`).
+
+### Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "organizationId": "4XYwOrZ8QMyyELm1310R",
+    "organizationName": "Acme",
+    "apiKey": {
+      "keyId": "019db0...",
+      "raw": "cko_9v...",
+      "keyPrefix": "cko_9v4k",
+      "name": "CLI default key",
+      "scopes": ["presentations:write", "presentations:read"],
+      "createdAt": "2026-04-19T16:00:00.000Z"
+    }
+  }
+}
+```
+
+Each successful call mints a **new** key. Previous keys stay valid until revoked from the dashboard.
+
+### Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `EMAIL_REQUIRED` / `OTP_INVALID` | Missing/malformed inputs |
+| 400 | `INVALID_EXPIRES_IN_DAYS` | `apiKey.expiresInDays` outside 1–365 |
+| 404 | `OTP_NOT_FOUND` | Run `/cliRequestLoginOtp` first |
+| 410 | `OTP_EXPIRED` | > 10 min old |
+| 409 | `OTP_ALREADY_USED` / `OTP_PURPOSE_MISMATCH` | Request a new login code |
+| 429 | `OTP_LOCKED_OUT` / `MAX_API_KEYS_REACHED` | Revoke unused keys from the dashboard |
+| 409 | `USER_HAS_NO_ORGANIZATION` | Happens if org was deleted between request + complete |
+| 500 | `INTERNAL` | Retry |
+
+---
+
+## Agent recipe
+
+For a script or Claude Code skill: run the signup path optimistically; if the server says the user already has an organization, retry via login. This handles every case in two or three HTTP calls.
+
+```bash
+# Pseudo-code
+RESP=$(curl -sS ... /cliRequestSignupOtp)
+CODE=$(echo $RESP | jq -r 'select(.success == false) | .error.code')
+if [ "$CODE" = "USER_ALREADY_HAS_ORGANIZATION" ]; then
+  curl -sS ... /cliRequestLoginOtp
+  # then cliCompleteLogin
+else
+  # ask user for the 6-digit code, then cliCompleteSignup
+fi
+```
+
+The [`setup-slideless`](/skills/overview) marketplace skill encodes this logic.
+
+## See also
+
+- [`cli/auth`](/cli/auth) — the CLI wrapper around these four endpoints.
+- [Authentication](/api-reference/authentication) — how the resulting `cko_` key is used on subsequent calls.
+- [`concepts/api-keys`](/concepts/api-keys) — lifecycle and security model for `cko_` keys.

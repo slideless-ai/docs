@@ -1,17 +1,17 @@
 ---
 title: "Update a presentation in place"
-description: "Replace the HTML behind an existing share URL — same URL, new content, view counts preserved"
+description: "Replace the HTML behind an existing share URL with one CLI command. Same URL, new content, view counts preserved."
 ---
 
 ## When to use this
 
-You've already shared a deck. You want to change the content — fix a typo, update a number, add a slide — without:
+You've already shared a deck. You want to change the content (fix a typo, update a number, add a slide) without:
 
 - Sending a new URL to everyone
 - Losing the view counts and per-token analytics
 - Breaking links you've already pasted in Slack, emails, or docs
 
-This is what `updateSharedPresentation` is for.
+This is what `slideless update` is for.
 
 ## What stays the same
 
@@ -22,70 +22,62 @@ This is what `updateSharedPresentation` is for.
 | `totalViews` and per-token `accessCount` | The HTML content |
 | Owner, organization, title (unless you pass a new one) | |
 
-## Endpoint
+## Update in one command
 
+```bash
+slideless update <shareId> ./deck-v2.html
 ```
-POST https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+
+Same URL. New content. The CLI prints the bumped version and the unchanged share URL.
+
+To rename at the same time:
+
+```bash
+slideless update <shareId> ./deck-v2.html --title "Q4 Pitch v2"
 ```
 
-Headers:
+For machine-readable output:
 
-| Header | Value |
-|---|---|
-| `X-Process-Manager-Key` | Your `cko_…` API key (scope `presentations:write`) |
-| `Content-Type` | `application/json` |
-
-Body:
+```bash
+slideless update <shareId> ./deck-v2.html --json
+```
 
 ```json
 {
-  "shareId": "0192f1c3-...",
-  "html": "<!doctype html>... new HTML ...",
-  "title": "Optional new title"
+  "success": true,
+  "data": {
+    "shareId": "0192f1c3-...",
+    "version": 2,
+    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=..."
+  }
 }
 ```
-
-Omit `title` to keep the existing one.
-
-Response (200):
-
-```json
-{
-  "shareId": "0192f1c3-...",
-  "version": 2,
-  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=..."
-}
-```
-
-Full reference: [`POST /updateSharedPresentation`](/api-reference/update-presentation).
 
 ## Walkthrough
 
 ### 1. Find the shareId
 
-If you saved the response from [`uploadSharedPresentation`](/api-reference/upload-presentation), the `shareId` is in there. Otherwise list your decks:
+If you saved the response from `slideless share`, the `shareId` is in there. Otherwise list your decks:
 
 ```bash
-curl -sS \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
-  https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic
+slideless list
+```
+
+Or pipe through `jq`:
+
+```bash
+slideless list --json | jq -r '.data.presentations[] | "\(.title) \(.id)"'
 ```
 
 The shareId is also embedded in the share URL: `https://app.slideless.ai/share/{shareId}?token=...`.
 
-### 2. Re-upload
+### 2. Re-publish
 
 ```bash
-SHARE_ID="0192f1c3-..."
-
-curl -sS -X POST \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
-  -H "Content-Type: application/json" \
-  --data-binary @<(jq -Rs --arg id "$SHARE_ID" '{shareId: $id, html: .}' < ./deck-v2.html) \
-  https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+slideless update 0192f1c3-... ./deck-v2.html
 ```
 
-Response includes the bumped `version` and the same `shareUrl`.
+Output includes the bumped `version` and the same `shareUrl`.
 
 ### 3. Notify recipients (optional)
 
@@ -93,27 +85,44 @@ Recipients see the new content the next time they reload. If the deck is open in
 
 ## What can't be updated
 
-- **Archived presentations** — once archived, no updates accepted (`410 gone`).
-- **Presentations you don't own** — `403 forbidden`. The API key's user must match the owner.
+- **Archived presentations.** Once archived, no updates accepted (CLI returns `code: "archived"`).
+- **Presentations you don't own.** The CLI returns `code: "permission-denied"`. The API key's user must match the owner.
 
 ## Errors
 
-| Status | Code | Meaning |
-|---|---|---|
-| `400` | `invalid-argument` | Missing `shareId` or `html`, or bad types |
-| `401` | `unauthenticated` | Missing or invalid API key |
-| `403` | `forbidden` | Not the owner, or missing `presentations:write` scope |
-| `404` | `not-found` | No presentation with that shareId |
-| `410` | `gone` | Presentation has been archived |
-| `413` | `payload-too-large` | HTML exceeds 10 MB |
+| `code` | Meaning |
+|---|---|
+| `unauthenticated` | Missing or invalid API key |
+| `permission-denied` | Not the owner, or missing `presentations:write` scope |
+| `not-found` | No presentation with that shareId |
+| `archived` | Presentation has been archived |
+| `payload-too-large` | HTML exceeds 10 MB |
 
 ## Operational patterns
 
-**CI on tag push.** A GitHub Action that re-publishes a release deck whenever you push a new tag. Same URL on the website, fresh content every release.
+**CI on tag push.** A GitHub Action that re-publishes a release deck whenever you push a new tag. Same URL on the website, fresh content every release:
+
+```bash
+slideless update "$SLIDELESS_SHARE_ID" ./dist/release-deck.html --json
+```
 
 **Daily cron.** A Cloud Scheduler job that regenerates a metrics deck every morning and re-publishes it.
 
-**Editorial workflow.** Author drafts → reviewer comments → author re-publishes. The shared URL given to stakeholders never changes; the content under it improves.
+**Editorial workflow.** Author drafts, reviewer comments, author re-publishes. The shared URL given to stakeholders never changes; the content under it improves.
+
+## Without the CLI
+
+If you can't run the CLI, hit the API directly. Full reference: [`POST /updateSharedPresentation`](/api-reference/update-presentation).
+
+```bash
+SHARE_ID="0192f1c3-..."
+
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @<(jq -Rs --arg id "$SHARE_ID" '{shareId: $id, html: .}' < ./deck-v2.html) \
+  https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+```
 
 ## Next
 

@@ -1,0 +1,82 @@
+---
+title: Configuration
+description: How the CLI stores credentials, switches between profiles, and resolves overrides.
+---
+
+## Config file
+
+The CLI stores state at:
+
+```text
+~/.config/slideless/config.json
+```
+
+(Or `$XDG_CONFIG_HOME/slideless/config.json` if `XDG_CONFIG_HOME` is set.)
+
+Created automatically by `slideless login`. File permissions are `0600`. Shape:
+
+```json
+{
+  "activeProfile": "personal",
+  "profiles": {
+    "personal": {
+      "apiKey": "cko_...",
+      "type": "org-api-key",
+      "organizationId": "...",
+      "organizationName": "Your workspace",
+      "keyName": "my-laptop",
+      "scopes": ["presentations:write", "presentations:read"]
+    }
+  }
+}
+```
+
+## Profiles
+
+Multiple profiles let you switch between orgs (personal, team, client) without re-logging-in each time.
+
+```bash
+slideless login --name personal      # creates or updates profile "personal"
+slideless login --name work-org      # creates profile "work-org"
+slideless use                        # list all profiles
+slideless use work-org               # switch active profile
+slideless whoami                     # show active identity
+slideless logout personal            # remove a profile
+```
+
+If `--name` is omitted, the CLI derives a profile name from the organization name (e.g. "Acme Inc." → `acme-inc`).
+
+## Resolution chain
+
+For every command, the CLI resolves credentials and base URL in this order:
+
+### API key
+
+1. `--api-key <key>` flag
+2. `SLIDELESS_API_KEY` env var
+3. Active profile's `apiKey`
+4. Error
+
+### Base URL
+
+1. `--api-url <url>` flag
+2. `SLIDELESS_API_BASE_URL` env var
+3. Active profile's `baseUrl` (if set)
+4. Production default
+
+## Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `SLIDELESS_API_KEY` | Overrides the active profile's API key. Handy for CI. |
+| `SLIDELESS_API_BASE_URL` | Overrides the backend URL. Used for staging or a local emulator. |
+| `XDG_CONFIG_HOME` | Overrides the config directory base path. |
+
+## Inspecting and clearing
+
+```bash
+slideless config show           # list all profiles with scopes + org
+slideless config show --json    # same, machine-readable
+slideless config clear          # remove all profiles
+slideless config clear --profile <name>  # remove just one
+```

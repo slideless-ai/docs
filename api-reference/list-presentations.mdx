@@ -1,25 +1,29 @@
 ---
-title: "GET /listMyPresentationsPublic"
+title: "GET /listMyPresentations"
 description: "List all presentations owned by the authenticated user"
 ---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless list` (or `slideless list --json` for machine output).
+</Note>
 
 ## When to use
 
 Enumerate the presentations created by the API key's user. Returns up to 100 results, ordered by `createdAt` descending.
 
-For full per-presentation metadata (token list, per-token access counts), use [`GET /getSharedPresentationInfoPublic/{shareId}`](/api-reference/get-presentation).
+For full per-presentation metadata (token list, per-token access counts), use [`GET /getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation).
 
 ## Endpoint
 
 ```
-GET https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic
+GET https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentations
 ```
 
 ## Auth
 
 | Header | Value |
 |---|---|
-| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) |
+| `Authorization` | `cko_…` (or `cka_…`) |
 
 Recommended scope: `presentations:read`.
 
@@ -68,16 +72,16 @@ Capped at **100 results** in v1. There is no cursor; if you have more than 100 p
 
 ```bash
 curl -sS \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
-  https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentations
 ```
 
 ### Node.js
 
 ```js
 const res = await fetch(
-  'https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic',
-  { headers: { 'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY } }
+  'https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentations',
+  { headers: { 'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}` } }
 );
 
 const { presentations } = await res.json();
@@ -90,10 +94,10 @@ for (const p of presentations) {
 
 | Status | Code | Cause | Fix |
 |---|---|---|---|
-| `401` | `unauthenticated` | Missing or invalid API key | Set `X-Process-Manager-Key` |
+| `401` | `unauthenticated` | Missing or invalid API key | Set `Authorization` |
 | `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
 | `500` | `internal` | Backend error | Retry with backoff |
 
 ## Next
 
-- **[GET /getSharedPresentationInfoPublic/{shareId}](/api-reference/get-presentation)** — Full metadata for one presentation, including all share tokens.
+- **[GET /getSharedPresentationInfo/{shareId}](/api-reference/get-presentation)** — Full metadata for one presentation, including all share tokens.

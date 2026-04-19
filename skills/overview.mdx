@@ -1,44 +1,57 @@
 ---
 title: "Marketplace skills"
-description: "Claude Code skills for generating, sharing, and managing Slideless presentations from any AI session"
+description: "Claude Code skills that wrap the slideless CLI for any AI session"
 ---
 
 ## What this is
 
-The [`slideless-marketplace`](https://github.com/slideless-ai/marketplace) is a Claude Code plugin. Once installed, every `slideless-*` skill is available in any Claude session — Claude can generate decks, publish them, update them, list them, and export them, all by name.
+The [`slideless-marketplace`](https://github.com/slideless-ai/marketplace) is a Claude Code plugin. Once installed, every `slideless-*` skill is available in any Claude session. Claude can generate decks, publish them, update them, list them, and export them, all by name.
 
-```
+```bash
 claude plugin install slideless-ai/marketplace
 ```
 
-After install, run `setup-slideless` once to authenticate, then call any other skill at will.
+The publish-side skills (`share-presentation`, `update-presentation`, `list-presentations`, `get-presentation`, `setup-slideless`) are thin wrappers around the [`slideless` CLI](/cli/overview). They shell out to commands like `slideless share ./deck.html --json` and parse the structured output. The CLI is the canonical interface; the skills make it ergonomic for Claude to use.
+
+The local-only skills (`generate-presentation`, `export-presentation-pdf`) don't touch the backend at all.
+
+## Prerequisites
+
+Install the CLI on the machine running Claude Code:
+
+```bash
+npm install -g slideless
+```
+
+Then run `setup-slideless` once to authenticate. The skill prefers the OTP flow (`slideless auth signup-request` / `signup-complete`, or the login variants for a returning user) and falls back to pasting a dashboard key if you already have one. See [`cli/auth`](/cli/auth) for the flow it runs.
 
 ## The skills
 
-| Skill | Purpose | Backend endpoint |
+| Skill | Purpose | Wraps |
 |---|---|---|
-| **`setup-slideless`** | Walk the user through getting an org API key, saving it to `~/.codika/.env`, and verifying it works. Run once per machine. | [`POST /verifyApiKey`](/api-reference/verify-api-key) |
-| **`generate-presentation`** | Generate a self-contained HTML presentation in a curated style (`slim-tabbed` for workshop content, `full-deck` for cinematic slides). Outputs a local `.html` file. | None — purely local |
-| **`share-presentation`** | Upload a local HTML file to Slideless and return a public share URL. Optionally update an existing share in place. | [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) or [`POST /updateSharedPresentation`](/api-reference/update-presentation) |
-| **`update-presentation`** | Replace the HTML behind an existing share URL — same URL, view counts preserved, version bumped. | [`POST /updateSharedPresentation`](/api-reference/update-presentation) |
-| **`list-presentations`** | List all shared presentations with titles, versions, view counts, and URLs. | [`GET /listMyPresentationsPublic`](/api-reference/list-presentations) |
-| **`get-presentation`** | Fetch full metadata for one presentation, including each share token's individual access count and last-accessed time. | [`GET /getSharedPresentationInfoPublic/{shareId}`](/api-reference/get-presentation) |
-| **`export-presentation-pdf`** | Convert a local HTML deck to a landscape PDF via a bundled Puppeteer runner. Auto-injects print CSS. | None — purely local |
+| **`setup-slideless`** | Bootstrap the CLI. Three branches: **OTP signup** for a fresh account, **OTP login** for an existing one, or paste a dashboard key as fallback. Run once per machine. | `slideless auth signup-request` / `signup-complete`, `login-request` / `login-complete`, or `slideless login` |
+| **`generate-presentation`** | Generate a self-contained HTML presentation in a curated style (`slim-tabbed` for workshop content, `full-deck` for cinematic slides). Outputs a local `.html` file. | None, purely local |
+| **`share-presentation`** | Upload a local HTML file to Slideless and return a public share URL. Optionally update an existing share in place. | `slideless share <path>` (or `slideless update <shareId> <path>`) |
+| **`update-presentation`** | Replace the HTML behind an existing share URL. Same URL, view counts preserved, version bumped. | `slideless update <shareId> <path>` |
+| **`list-presentations`** | List all shared presentations with titles, versions, view counts, and URLs. | `slideless list --json` |
+| **`get-presentation`** | Fetch full metadata for one presentation, including each share token's individual access count and last-accessed time. | `slideless get <shareId> --json` |
+| **`export-presentation-pdf`** | Convert a local HTML deck to a landscape PDF via a bundled Puppeteer runner. Auto-injects print CSS. | None, purely local |
 
 ## A typical session
 
 ```
 > /skill setup-slideless           # one-time
-  → key stored in ~/.codika/.env, verified
+  → email requested, OTP entered, `cko_` key stored and verified
 
 > /skill generate-presentation
-  → topic: "Q4 results — revenue, churn, headcount"
+  → topic: "Q4 results, revenue, churn, headcount"
   → style: full-deck
   → wrote ./q4-results.html
 
 > /skill share-presentation
   → html_path: ./q4-results.html
   → title: "Q4 Results"
+  → ran: slideless share ./q4-results.html --title "Q4 Results" --json
   → published: https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...
 
 [ ... edit, regenerate, iterate ... ]
@@ -46,6 +59,7 @@ After install, run `setup-slideless` once to authenticate, then call any other s
 > /skill update-presentation
   → share_id: 0192f1c3-...
   → html_path: ./q4-results-v2.html
+  → ran: slideless update 0192f1c3-... ./q4-results-v2.html --json
   → updated to v2 (same URL)
 
 > /skill get-presentation
@@ -71,12 +85,13 @@ The `generate-presentation` skill ships two styles, each with a worked example:
 
 | Style | When to use | Source |
 |---|---|---|
-| **`slim-tabbed`** | Workshop-style content — tabs across the top, dense text, code samples, side-by-side comparisons. Best for documentation-as-deck. | [GitHub](https://github.com/slideless-ai/marketplace/tree/main/plugins/slideless/skills/generate-presentation/styles/slim-tabbed) |
-| **`full-deck`** | Cinematic, slide-by-slide presentations — large headlines, sparse content, transitions. Best for pitches and talks. | [GitHub](https://github.com/slideless-ai/marketplace/tree/main/plugins/slideless/skills/generate-presentation/styles/full-deck) |
+| **`slim-tabbed`** | Workshop-style content. Tabs across the top, dense text, code samples, side-by-side comparisons. Best for documentation-as-deck. | [GitHub](https://github.com/slideless-ai/marketplace/tree/main/plugins/slideless/skills/generate-presentation/styles/slim-tabbed) |
+| **`full-deck`** | Cinematic, slide-by-slide presentations. Large headlines, sparse content, transitions. Best for pitches and talks. | [GitHub](https://github.com/slideless-ai/marketplace/tree/main/plugins/slideless/skills/generate-presentation/styles/full-deck) |
 
 Each style has a `README.md` (when to pick it), `how-to-build.md` (how to author it), and `example.html` (production reference). When in doubt about a CSS or JS pattern, the `example.html` is the source of truth.
 
 ## Next
 
-- **[Use Slideless with Claude](/guides/with-claude)** — Step-by-step guide to running this loop interactively.
-- **[API reference](/api-reference/overview)** — Endpoints these skills call.
+- **[CLI overview](/cli/overview)** — The interface skills delegate to.
+- **[Use Slideless with Claude](/guides/with-claude)** — Step-by-step walkthrough of running the loop interactively.
+- **[Advanced: HTTP API](/api-reference/overview)** — The endpoints the CLI calls.

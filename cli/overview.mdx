@@ -1,0 +1,28 @@
+---
+title: Overview
+description: The `slideless` CLI — share, update, list, and inspect HTML presentations from your terminal.
+---
+
+The `slideless` CLI is the primary way to interact with the Slideless platform from any shell script, CI pipeline, or agent runtime. It wraps every public API operation behind friendly commands, handles authentication and error decoding for you, and supports stable machine-readable output via `--json`.
+
+## Why use the CLI
+
+- **One-line auth.** `slideless login` stores a per-org profile at `~/.config/slideless/config.json`. No env-var juggling.
+- **Stable JSON output.** Every command supports `--json` with a consistent `{ success, data | error }` shape for skill and CI use.
+- **Multi-profile support.** Switch between personal and team orgs with `slideless use <name>`.
+- **Sensible errors.** The CLI decodes backend errors into short, actionable codes (`unauthenticated`, `payload-too-large`, `archived`, `permission-denied`) instead of raw HTTP numbers.
+- **Zero boilerplate in skills.** The marketplace skills (`share-presentation`, `list-presentations`, etc.) delegate to the CLI — so your skill code stays focused on the business problem.
+
+## When to reach for the raw HTTP API instead
+
+For almost all use cases, the CLI is the right choice. Drop down to the [HTTP API](/api-reference/overview) only if:
+
+- You're building in a language or runtime where shelling out is awkward
+- You need to embed Slideless calls in a long-running service that can't depend on a CLI binary
+- You're debugging the CLI itself
+
+## Next steps
+
+- [Install the CLI](/cli/installation)
+- [Command reference](/cli/commands)
+- [Configuration & profiles](/cli/configuration)

@@ -1,80 +1,143 @@
 ---
 title: "Quickstart"
-description: "Upload your first HTML presentation and get a public share URL in five minutes"
+description: "Upload your first HTML presentation and get a public share URL in under five minutes, starting from nothing but an email"
 ---
 
 ## Goal
 
-By the end of this page you'll have a public share URL pointing at an HTML presentation you uploaded via the API.
+By the end of this page you'll have a public share URL pointing at an HTML presentation you uploaded with the `slideless` CLI.
 
 ## Prerequisites
 
-- A Google or email account to sign in to the [Slideless app](https://app.slideless.ai)
-- A terminal with `curl`
-- An HTML file you want to share (any self-contained `.html` works — see the [Generate with Claude](/guides/with-claude) guide if you need one)
+- **Node.js 20+** (`node --version` to check)
+- An email you can check
+- An HTML file you want to share (any self-contained `.html` works, see the [Generate with Claude](/guides/with-claude) guide if you need one)
 
-## Step 1 — Sign in to the app
+No Slideless account yet? That's fine. Step 2 creates one.
 
-Open https://app.slideless.ai and sign in. On first sign-in a personal organization is created for you automatically.
-
-## Step 2 — Create an API key
-
-Navigate to **Organization → API Keys** (in the sidebar) and click **Create API key**.
-
-| Field | Value |
-|---|---|
-| Name | `quickstart` |
-| Scopes | Check `presentations:write` (and `presentations:read` if you want to list later) |
-| Expiration | Optional — leave blank for no expiration |
-
-The key starts with `cko_` and is shown **once**. Copy it now — you can't view it again.
-
-## Step 3 — Upload a presentation
-
-Save your HTML somewhere or use this minimal example. Then upload:
+## Step 1 — Install the CLI
 
 ```bash
-curl -X POST https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation \
-  -H "X-Process-Manager-Key: cko_YOUR_KEY_HERE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "My first deck",
-    "html": "<!doctype html><html><head><title>Hello</title></head><body><h1>Hello, Slideless</h1></body></html>"
-  }'
+npm install -g slideless
+slideless --version
 ```
 
-You'll get back JSON like:
+If `npm install -g` is blocked, `npx slideless ...` works for any command.
 
-```json
-{
-  "shareId": "0192f1c3-...",
-  "tokenId": "0192f1c3-...",
-  "token": "AbCdEf...384-bit-base64url...",
-  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
-}
+## Step 2 — Request a signup code
+
+```bash
+slideless auth signup-request --email you@example.com
 ```
 
-## Step 4 — Open the share URL
+This emails a 6-digit code to `you@example.com` and exits. The email arrives in a few seconds. See [`cli/auth`](/cli/auth) if you hit any error.
 
-Paste the `shareUrl` into a new browser tab. You'll see your HTML rendered inside the Slideless viewer chrome — fullscreen toggle, download menu, "Made with Slideless" footer.
+## Step 3 — Complete signup
+
+Check your inbox for the code, then:
+
+```bash
+slideless auth signup-complete --email you@example.com --code 123456
+```
+
+Output:
+
+```text
+✓ Signup complete
+
+  Organization:  My Organization
+  Org ID:        4XYwOrZ8...
+  Profile:       my-organization (now active)
+  API key:       cko_xxxx...  (scopes: presentations:write, presentations:read)
+
+  Try it:  slideless whoami
+```
+
+Your `cko_` key is now stored in `~/.config/slideless/config.json` (mode `0600`) and set as the active profile. You can pass extra flags like `--company "Acme"`, `--brand-primary "#0a0a0a"`, or `--logo ./logo.png` to fill in organization details at the same time — see [`cli/auth`](/cli/auth) for the full list.
+
+## Step 4 — Share your first presentation
+
+Save a minimal `deck.html`:
+
+```html
+<!doctype html>
+<html><head><title>Hello</title></head>
+<body><h1>Hello, Slideless</h1></body></html>
+```
+
+Then upload it:
+
+```bash
+slideless share ./deck.html --title "My first deck"
+```
+
+Output:
+
+```text
+✓ Presentation shared
+
+  Share ID:  0192f1c3-...
+  Token ID:  0192f1c3-...
+  Share URL: https://app.slideless.ai/share/0192f1c3-...?token=...
+```
+
+## Step 5 — Open the share URL
+
+Paste the `Share URL` into a new browser tab. You'll see your HTML rendered inside the Slideless viewer chrome: fullscreen toggle, download menu, "Made with Slideless" footer.
 
 Open it on your phone too. The same URL works everywhere.
 
-## Step 5 — Watch the view count
+## Step 6 — Watch the view count
 
-Refresh the dashboard's **Presentations** page. You'll see a card for the deck with `totalViews` ticking up every time the share URL is opened.
+```bash
+slideless list
+```
+
+Each time the share URL is opened, `totalViews` ticks up. For per-token view counts:
+
+```bash
+slideless get 0192f1c3-...
+```
+
+## Updating in place
+
+Edit `deck.html`, then re-publish to the same URL:
+
+```bash
+slideless update 0192f1c3-... ./deck.html
+```
+
+Recipients see the new content on next load. The URL doesn't change; the view count is preserved.
 
 ## What just happened
 
 | Step | Behind the scenes |
 |---|---|
-| Created API key | A `cko_…` key with `presentations:write` scope was provisioned for your org |
+| Signup | A Firebase Auth user, a `users/{uid}` doc, a one-owner organization, and a `cko_…` key were created atomically; the raw key was returned once and saved locally |
 | Uploaded HTML | The HTML was stored in private GCS; a Firestore record was created with one auto-generated share token |
-| Opened share URL | Slideless served your HTML inside a sandboxed iframe and incremented the per-token view counter |
+| Opened share URL | Slideless served your HTML inside a sandboxed viewer and incremented the per-token view counter |
+
+## Alternative: paste a key from the dashboard
+
+<Accordion title="I already have a cko_ key from the web dashboard">
+
+If you already created a key in [app.slideless.ai](https://app.slideless.ai) → **Organization → API Keys**, skip the OTP flow and paste it:
+
+```bash
+npm install -g slideless
+slideless login
+# paste the cko_ key when prompted (input is masked)
+```
+
+This does the same thing as `signup-complete` / `login-complete`: verifies the key, saves a profile at `~/.config/slideless/config.json`, and makes it the active one. Continue from **Step 4**.
+
+</Accordion>
 
 ## Next steps
 
-- **[Why Slideless](/why-slideless/portable)** — Why HTML beats `.pptx` for sharing decks.
-- **[Update in place](/guides/updating-in-place)** — Re-publish new content to the same URL without breaking it.
-- **[Use with Claude](/guides/with-claude)** — Have Claude generate and share decks for you with the marketplace skills.
-- **[Full API reference](/api-reference/overview)** — Every endpoint, every field.
+- **[CLI command reference](/cli/commands)** — every command, every flag.
+- **[Auth (OTP signup & login)](/cli/auth)** — deep dive on the OTP flow, including the full error-code table.
+- **[Why Slideless](/why-slideless/portable)** — why HTML beats `.pptx` for sharing decks.
+- **[Update in place](/guides/updating-in-place)** — re-publishing mechanics in depth.
+- **[Use with Claude](/guides/with-claude)** — have Claude generate and share decks for you with the marketplace skills.
+- **[HTTP API reference](/api-reference/overview)** — for when you need to call the backend without the CLI.

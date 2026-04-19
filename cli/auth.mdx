@@ -1,0 +1,184 @@
+---
+title: "Auth (OTP signup & login)"
+description: "Create a Slideless account and get a `cko_` API key entirely from the terminal, with no dashboard or browser round-trip"
+---
+
+<Note>
+This is the default path in the [quickstart](/quickstart) and the one the [`setup-slideless`](/skills/overview) marketplace skill uses. If you already have a key from the dashboard, [`slideless login --api-key cko_...`](/cli/commands#slideless-login) is still available.
+</Note>
+
+## When to use OTP
+
+| Situation | Use |
+|---|---|
+| First-time setup on a new machine, new CI runner, or an agent with no prior state | `slideless auth signup-request` then `signup-complete` |
+| Existing account, no local API key (or the key is bad) | `slideless auth login-request` then `login-complete` |
+| You already copied a `cko_...` from the dashboard | [`slideless login --api-key cko_...`](/cli/commands#slideless-login) |
+
+The OTP flow is two calls: one that emails a 6-digit code, one that consumes the code. No passwords, no dashboard visit. The resulting `cko_` key is saved to `~/.config/slideless/config.json` and set as the active profile — so `slideless share`, `slideless list`, etc. work immediately after.
+
+## Signup
+
+### Minimal (email + code)
+
+```bash
+slideless auth signup-request --email you@example.com
+# check inbox, then:
+slideless auth signup-complete --email you@example.com --code 123456
+```
+
+The resulting organization is named `"My Organization"`. You can rename it later from the dashboard.
+
+### With company details
+
+Everything beyond `--email` + `--code` is optional and mapped straight onto the new organization document.
+
+```bash
+slideless auth signup-complete \
+  --email you@example.com \
+  --code 123456 \
+  --company "Acme" \
+  --description "We make widgets" \
+  --brand-primary "#0a0a0a" \
+  --brand-secondary "#888888" \
+  --brand-accent "#e53935" \
+  --tone "Pragmatic, concise, a bit dry" \
+  --logo ./logo.png
+```
+
+Logo rules: PNG, JPEG, WebP, or SVG; max 2 MB. The CLI base64-encodes it for you.
+
+### JSON output
+
+```bash
+slideless auth signup-complete --email you@example.com --code 123456 --json
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "profileName": "my-organization",
+    "organizationId": "4XYwOrZ8...",
+    "organizationName": "My Organization",
+    "apiKey": {
+      "keyId": "019da6...",
+      "keyPrefix": "cko_O_Q8",
+      "name": "CLI default key",
+      "scopes": ["presentations:write", "presentations:read"],
+      "createdAt": "2026-04-19T14:21:03.000Z"
+    },
+    "isNewUser": true
+  }
+}
+```
+
+The raw key is stored in `~/.config/slideless/config.json`; it is not echoed to stdout in the JSON response.
+
+## Login
+
+Use this when the email already has a Slideless account but the current machine has no valid key.
+
+```bash
+slideless auth login-request --email you@example.com
+slideless auth login-complete --email you@example.com --code 123456
+```
+
+Each `login-complete` mints a **fresh** `cko_` key scoped to your existing organization and saves it as a new profile. Previous keys stay valid (you can revoke them from the dashboard if you want).
+
+## Options (signup-complete & login-complete)
+
+| Flag | Applies to | Default |
+|---|---|---|
+| `--profile-name <name>` | both | Auto-derived from the org name |
+| `--key-name <name>` | both | `"CLI default key"` |
+| `--key-expires-in <days>` | both | No expiration (1–365 accepted) |
+| `--base-url <url>` | all four | Production |
+| `--json` | all four | Human output |
+
+Signup-specific:
+
+| Flag | Default |
+|---|---|
+| `--company <name>` | `"My Organization"` |
+| `--description <text>` | — |
+| `--brand-primary <hex>` | — |
+| `--brand-secondary <hex>` | — |
+| `--brand-accent <hex>` | — |
+| `--tone <text>` | — |
+| `--logo <path>` | — |
+
+## Rate limits
+
+- **Resend cooldown**: 30 seconds between OTP requests for the same email.
+- **Abuse caps**: 20 OTP requests per email per hour; 60 per IP per hour.
+- **Code lifetime**: 10 minutes.
+- **Brute-force lockout**: after 5 bad codes, the server deletes the record and makes you request a fresh one.
+
+## Error codes
+
+Every failure returns this shape (both in `--json` output and in the structured log of the human renderer):
+
+```json
+{
+  "success": false,
+  "status": 409,
+  "error": {
+    "code": "USER_ALREADY_HAS_ORGANIZATION",
+    "message": "This email already has an organization.",
+    "nextAction": "Run `slideless auth login-request --email you@example.com` to get a new API key instead."
+  }
+}
+```
+
+The `nextAction` field is designed to be acted on programmatically. For example:
+
+```bash
+slideless auth signup-complete --email ... --code ... --json \
+  | jq -r 'select(.success == false) | .error.nextAction'
+```
+
+| Code | HTTP | Meaning | `nextAction` |
+|---|---|---|---|
+| `EMAIL_REQUIRED` / `EMAIL_INVALID` | 400 | Missing or malformed `--email` | Pass `--email <valid@email>` |
+| `OTP_RESEND_COOLDOWN` | 429 | Hit the 30-second cooldown | Wait `details.retryInSeconds`, retry |
+| `EMAIL_RATE_LIMITED` / `IP_RATE_LIMITED` | 429 | 20/hour per email or 60/hour per IP exceeded | Wait up to an hour |
+| `USER_ALREADY_HAS_ORGANIZATION` | 409 | Signup for an email that already has an org | Switch to `login-request` |
+| `USER_NOT_FOUND` | 404 | Login for an email with no account | Switch to `signup-request` |
+| `USER_HAS_NO_ORGANIZATION` | 409 | Login for an account that somehow has no org | Switch to `signup-request` |
+| `OTP_NOT_FOUND` | 404 | No pending code (never sent, or already consumed + expired) | Run the matching `-request` first |
+| `OTP_EXPIRED` | 410 | Code older than 10 minutes | Request a fresh code |
+| `OTP_INVALID` | 400 | Wrong 6 digits | Re-read the email; `details.attemptsRemaining` shows what's left |
+| `OTP_ALREADY_USED` | 409 | Code consumed in an earlier call | Request a fresh code |
+| `OTP_LOCKED_OUT` | 429 | 5 bad attempts on the same code | Request a fresh code |
+| `OTP_PURPOSE_MISMATCH` | 409 | Signup code used for login or vice versa | Run the matching `-request` |
+| `COMPANY_NAME_TOO_LONG` | 400 | `--company` over 100 chars | Shorten or omit |
+| `BRAND_COLOR_INVALID` | 400 | Non-hex brand color | Use a 6-digit hex (`#1a2b3c`) |
+| `LOGO_TOO_LARGE` / `LOGO_INVALID_FORMAT` / `LOGO_DECODE_FAILED` | 400 | Logo fails size/format/decode validation | Use a PNG/JPEG/WebP/SVG under 2 MB |
+| `INVALID_EXPIRES_IN_DAYS` | 400 | `--key-expires-in` outside 1–365 | Omit or pick a valid value |
+| `INTERNAL` | 500 | Backend error | Retry in a few seconds |
+
+## What's saved locally
+
+After a successful `signup-complete` or `login-complete`:
+
+- The raw `cko_` key, its prefix, scopes, `keyName`, org id/name, and `createdAt` are written to `~/.config/slideless/config.json` (mode `0600`) as a new profile.
+- That profile is marked active.
+- Subsequent commands (`slideless share`, `slideless whoami`, `slideless list`, ...) pick it up automatically.
+
+Nothing is logged to shell history (the OTP code is an argument, not an env var, so it only appears in your terminal scrollback until you clear it).
+
+## Single-organization rule
+
+A Slideless account has exactly one organization. Two consequences:
+
+1. `signup-request` refuses (`USER_ALREADY_HAS_ORGANIZATION`) if the email already owns one. The returned `nextAction` tells you to switch to `login-request`.
+2. Re-running `signup-complete` after an org exists would try to create a second one; the backend blocks it at both the endpoint and the `createOrganization` level.
+
+If you need access to the same org from a different email, use the dashboard's team-invite flow.
+
+## See also
+
+- [Quickstart](/quickstart) — the full five-minute path that uses this.
+- [`cli/commands`](/cli/commands#auth-otp) — compact syntax reference for the four subcommands.
+- [HTTP API: CLI auth endpoints](/api-reference/cli-auth) — the underlying `POST /cliRequestSignupOtp` / `/cliCompleteSignup` / `/cliRequestLoginOtp` / `/cliCompleteLogin`.

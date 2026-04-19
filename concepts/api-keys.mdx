@@ -1,6 +1,6 @@
 ---
 title: "API keys"
-description: "How API keys, scopes, and the X-Process-Manager-Key header work in Slideless"
+description: "How API keys, scopes, and the Authorization header work in Slideless"
 ---
 
 ## Two key types
@@ -8,19 +8,37 @@ description: "How API keys, scopes, and the X-Process-Manager-Key header work in
 | Type | Prefix | Scope | Created via |
 |---|---|---|---|
 | **Organization key** | `cko_` | Acts on behalf of one org | Dashboard → Organization → API Keys |
-| **Admin key** | `cka_` | Cross-org platform admin | Internal tooling only — not user-creatable |
+| **Admin key** | `cka_` | Cross-org platform admin | Internal tooling only, not user-creatable |
 
 Almost everything you do uses an organization key. Admin keys exist for platform-level automation and are not exposed in the dashboard.
 
-## Where the key goes
+## How you use it
 
-Every API call sends the key in the `X-Process-Manager-Key` header:
+The recommended path is the [`slideless` CLI](/cli/overview). Either approach stores the key in `~/.config/slideless/config.json` (mode `0600`) and configures every subsequent CLI command to send the right `Authorization` header.
+
+**From scratch, no dashboard needed ([full guide](/cli/auth)):**
 
 ```bash
-curl -H "X-Process-Manager-Key: cko_abc123def456..." ...
+slideless auth signup-request --email you@example.com
+slideless auth signup-complete --email you@example.com --code 123456
 ```
 
-This is **not** `Authorization: Bearer …` — that pattern doesn't apply here. The `X-Process-Manager-Key` header is the only accepted form.
+`signup-complete` creates your account + organization + a `cko_` key and saves it as the active profile, all in one call. For an existing account on a new machine, use `login-request` + `login-complete` instead.
+
+**Paste a key from the dashboard:**
+
+```bash
+slideless login
+# paste the cko_ key when prompted
+```
+
+Switch between profiles with `slideless use <name>`.
+
+If you call the HTTP API directly, send the key as a bearer token:
+
+```
+Authorization: Bearer cko_your_organization_api_key
+```
 
 ## Scopes
 
@@ -31,7 +49,7 @@ When you create an organization key, you pick scopes:
 | `presentations:write` | Upload, update, archive presentations |
 | `presentations:read` | List your presentations, get presentation metadata |
 
-A key without the relevant scope returns `403 forbidden` from the affected endpoint. Pick the narrowest scope set that fits the use case — a script that only lists decks should use `presentations:read` only.
+A key without the relevant scope returns `permission-denied` (HTTP `403`) from the affected endpoint. Pick the narrowest scope set that fits the use case. A script that only lists decks should use `presentations:read` only.
 
 ## Lifecycle
 
@@ -47,11 +65,11 @@ revoked (status=revoked) OR expired (past expiresAt)
 
 | Transition | How |
 |---|---|
-| Create | Dashboard → Organization → API Keys → "Create API key" |
+| Create | Either `slideless auth signup-complete` / `login-complete` ([CLI OTP flow](/cli/auth)), or Dashboard → Organization → API Keys → "Create API key" |
 | View raw value | **Once**, at creation. Slideless stores only a SHA-256 hash. |
-| Use | Send in `X-Process-Manager-Key` header |
+| Use | After signup/login the key is saved locally; every CLI command then authenticates automatically |
 | Revoke | Dashboard → API Keys → click "Revoke" |
-| Rotate | Create a new key, update your callers, revoke the old key |
+| Rotate | Run `slideless auth login-complete` again (mints a fresh key), or paste a new one via `slideless login`. Revoke the old key from the dashboard. |
 
 ## What's stored, what isn't
 
@@ -74,24 +92,23 @@ Slideless does **not** store the raw key. If you lose it, you must create a new 
 
 ## Verifying a key
 
-You can test a key without making a destructive call:
+The simple way is the CLI:
 
 ```bash
-curl -X POST https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey \
-  -H "X-Process-Manager-Key: cko_..."
+slideless verify
 ```
 
-Returns `200` with metadata (name, scopes, organizationId, expiresAt) on success, `401` on failure. The marketplace `setup-slideless` skill uses this endpoint to validate keys before saving them locally.
+Prints `✓ API key valid` and exits 0 on success, nonzero on failure. Convenient for CI and troubleshooting.
 
-See [`POST /verifyApiKey`](/api-reference/verify-api-key) for the full response shape.
+If you need to call the HTTP endpoint directly, see [`POST /verifyApiKey`](/api-reference/verify-api-key).
 
 ## Errors you might see
 
-| Status | Meaning | Fix |
+| `code` | Meaning | Fix |
 |---|---|---|
-| `401 unauthenticated` | Missing or invalid key | Check the `X-Process-Manager-Key` header value |
-| `403 forbidden` | Key valid but missing the required scope | Recreate the key with the correct scope |
-| `403 forbidden` | Key has been revoked | Create a new key |
+| `unauthenticated` | Missing or invalid key | Re-run `slideless login`, or check `Authorization` header |
+| `permission-denied` | Key valid but missing the required scope | Recreate the key with the correct scope |
+| `permission-denied` | Key has been revoked | Create a new key |
 
 ## Operational guidance
 

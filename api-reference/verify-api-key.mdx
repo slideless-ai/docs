@@ -3,6 +3,10 @@ title: "POST /verifyApiKey"
 description: "Validate an API key and return its metadata — name, scopes, organization, last-used time"
 ---
 
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalents are `slideless verify` (exit-code-based pass/fail) and `slideless whoami` (full identity output).
+</Note>
+
 ## When to use
 
 Test that an API key is valid before making destructive calls. Useful at the start of CI jobs, scripts, or interactive setup flows. The marketplace `setup-slideless` skill uses this endpoint to confirm a freshly-created key works.
@@ -19,7 +23,7 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey
 
 | Header | Value |
 |---|---|
-| `X-Process-Manager-Key` | The key you want to verify (`cko_…` or `cka_…`) |
+| `Authorization` | The key you want to verify (`cko_…` or `cka_…`) |
 
 No request body.
 
@@ -63,7 +67,7 @@ For an admin key (`cka_`), `organizationId` and `organizationName` are `null`; `
 
 | Status | Code | Cause | Fix |
 |---|---|---|---|
-| `401` | (in `error.message`) | Missing, malformed, or revoked key | Send a valid `cko_` or `cka_` value in `X-Process-Manager-Key` |
+| `401` | (in `error.message`) | Missing, malformed, or revoked key | Send a valid `cko_` or `cka_` value in `Authorization` |
 | `405` | (in `error.message`) | Used GET/PUT/etc. | Use `POST` |
 | `500` | (in `error.message`) | Backend error fetching metadata | Retry; if persistent, include `requestId` in support request |
 
@@ -85,7 +89,7 @@ This is slightly different from the `{ error, code }` shape used by the share en
 
 ```bash
 curl -sS -X POST \
-  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
   https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey
 ```
 
@@ -96,7 +100,7 @@ const res = await fetch(
   'https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey',
   {
     method: 'POST',
-    headers: { 'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY }
+    headers: { 'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}` }
   }
 );
 
