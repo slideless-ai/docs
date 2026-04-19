@@ -1,11 +1,11 @@
 ---
 title: "Use Slideless with Claude"
-description: "Generate, share, and update presentations from Claude Code via the slideless marketplace plugin"
+description: "Generate, share, and update presentations from Claude Code via the slideless plugin"
 ---
 
 ## Overview
 
-The [`slideless-marketplace`](https://github.com/slideless-ai/marketplace) is a Claude Code plugin that lets Claude:
+The [`slideless-ai/plugin`](https://github.com/slideless-ai/plugin) is an [Open Plugin v1](https://github.com/vercel-labs/open-plugin-spec)-conformant plugin that lets Claude Code (and any other compatible agent) do the following:
 
 1. **Generate** a self-contained HTML presentation in a curated style.
 2. **Share** it and get back a public URL to send to anyone.
@@ -25,17 +25,22 @@ Install the CLI once:
 npm install -g slideless
 ```
 
-Then install the marketplace plugin in Claude Code:
+Then install the plugin. Either of these works:
 
 ```bash
-claude plugin install slideless-ai/marketplace
+# Open-Plugin-compatible path (Claude Code, Cursor, …):
+npx plugins add slideless-ai/plugin
+
+# Or, Claude Code native:
+/plugin marketplace add slideless-ai/plugin
+/plugin install slideless@plugin
 ```
 
-After install, every `slideless-*` skill is available in any Claude session.
+After install, every `/slideless:*` skill is available in any session.
 
 ## Step 2 — One-time setup skill
 
-Run [`setup-slideless`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/setup-slideless/SKILL.md):
+Run [`setup-slideless`](https://github.com/slideless-ai/plugin/blob/main/skills/setup-slideless/SKILL.md):
 
 ```
 /skill setup-slideless
@@ -109,7 +114,7 @@ Runs a local Puppeteer process that prints the HTML to a landscape PDF with prin
 
 ## Available skills (full list)
 
-See the [Marketplace Skills overview](/skills/overview) for the canonical list with descriptions and the CLI command each one wraps.
+See the [Plugin Skills overview](/skills/overview) for the canonical list with descriptions and the CLI command each one wraps.
 
 ## Troubleshooting
 

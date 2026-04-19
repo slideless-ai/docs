@@ -23,7 +23,7 @@ When helping users with Slideless:
 - Share tokens are 384 bits of entropy (48 random bytes, base64url). They are designed to be safe in URLs. Don't shorten share URLs through public link shorteners.
 - A presentation can have multiple named tokens (`default`, `John at Acme`, etc.). Each has its own view counter. Revoking one token never affects others.
 - Once a presentation is archived (`archived: true`), it cannot be updated. There is no un-archive in v1.
-- The marketplace plugin lives at `slideless-ai/marketplace`. Install with `claude plugin install slideless-ai/marketplace`. Publish-side skills delegate to the CLI; install the CLI on the same machine.
+- The plugin lives at `slideless-ai/plugin` (Open Plugin v1). Install with `npx plugins add slideless-ai/plugin` for any compatible host, or `/plugin marketplace add slideless-ai/plugin` + `/plugin install slideless@plugin` in Claude Code. Publish-side skills delegate to the CLI; install the CLI on the same machine.
 
 ## Getting Started
 
@@ -52,13 +52,13 @@ When helping users with Slideless:
 
 ## Guides
 
-- [Use Slideless with Claude](https://docs.slideless.ai/guides/with-claude): Install the CLI, install the marketplace plugin, run `setup-slideless`, generate + share + update + list + get from any Claude session. Skills delegate to the CLI.
+- [Use Slideless with Claude](https://docs.slideless.ai/guides/with-claude): Install the CLI, install the plugin (`npx plugins add slideless-ai/plugin`), run `setup-slideless`, generate + share + update + list + get from any Claude session. Skills delegate to the CLI.
 - [Upload from a script or CI](https://docs.slideless.ai/guides/uploading-via-api): CLI-driven CI pattern. Install with npm, authenticate via `SLIDELESS_API_KEY` env var, `slideless share --json` and pipe through `jq`. Optional curl fallback if the CLI can't be installed.
 - [Update a presentation in place](https://docs.slideless.ai/guides/updating-in-place): `slideless update <shareId> <path>` re-publishes without breaking the URL or losing view counts. What stays the same, what bumps, why archived presentations can't be updated.
 
-## Marketplace Skills
+## Plugin Skills
 
-- [Marketplace skills overview](https://docs.slideless.ai/skills/overview): The seven Claude Code skills. `setup-slideless` (wraps `slideless login`), `generate-presentation` (local HTML generation in `slim-tabbed` or `full-deck` styles), `share-presentation` (wraps `slideless share`), `update-presentation` (wraps `slideless update`), `list-presentations` (wraps `slideless list`), `get-presentation` (wraps `slideless get`), `export-presentation-pdf` (local Puppeteer). Each skill links to its `SKILL.md` source on GitHub.
+- [Plugin skills overview](https://docs.slideless.ai/skills/overview): The seven agent skills. `setup-slideless` (wraps `slideless login`), `generate-presentation` (local HTML generation in `slim-tabbed` or `full-deck` styles), `share-presentation` (wraps `slideless share`), `update-presentation` (wraps `slideless update`), `list-presentations` (wraps `slideless list`), `get-presentation` (wraps `slideless get`), `export-presentation-pdf` (local Puppeteer). Each skill links to its `SKILL.md` source on GitHub.
 
 ## Advanced: HTTP API
 

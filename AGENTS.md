@@ -8,7 +8,7 @@ The primary way to interact with Slideless is the **`slideless` CLI** (npm packa
 
 Slideless is a side product by Codika. The backend is a standalone Firebase project (`slideless-ai`, GCP region `europe-west1`), not a satellite of the main Codika platform. The HTTP API has six endpoints. API keys use the `cko_` prefix and are sent in the `Authorization: Bearer <key>` header. The CLI handles this for you once `slideless login` runs.
 
-The marketplace plugin (`slideless-ai/marketplace`) bundles seven Claude Code skills. Publish-side skills are thin wrappers around the CLI; local skills (`generate-presentation`, `export-presentation-pdf`) are self-contained.
+The `slideless-ai/plugin` repo is an [Open Plugin v1](https://github.com/vercel-labs/open-plugin-spec)-conformant plugin that bundles seven agent skills (installable via `npx plugins add slideless-ai/plugin` in Claude Code, Cursor, or any compatible host). Publish-side skills are thin wrappers around the CLI; local skills (`generate-presentation`, `export-presentation-pdf`) are self-contained.
 
 ## How to navigate this documentation
 
@@ -21,7 +21,7 @@ Single sidebar tab, **Documentation**, split into seven groups.
 | **Concepts** | 3 pages in `concepts/` | When you need to understand a specific concept (presentations, share tokens, API keys) |
 | **CLI** | 5 pages in `cli/` | When the user is using or installing the CLI (the recommended path) |
 | **Guides** | 3 pages in `guides/` | When building something specific (Claude marketplace skills, scripted CI uploads, update-in-place) |
-| **Marketplace Skills** | 1 page in `skills/` | When the user wants Claude to generate, share, or manage decks for them |
+| **Plugin Skills** | 1 page in `skills/` | When the user wants Claude to generate, share, or manage decks for them |
 | **Advanced: HTTP API** | 9 pages in `api-reference/` | When the user needs the exact request/response shape for an endpoint, or can't run the CLI |
 
 ### Group: CLI (recommended path)
@@ -117,4 +117,4 @@ When users ask about specific behavior, ground answers in the actual implementat
 - CLI source: `slideless-ai/slideless-cli` repo (`src/commands/`)
 - API endpoint code lives in the `slideless-ai` repo at `functions/src/features/shared-presentations/api-reference/` and `functions/src/features/organization-api-keys/api-reference/`
 - Auth middleware: `functions/src/features/organization-api-keys/utils/apiKeyAuthMiddleware.ts`
-- Marketplace skills: `slideless-ai/marketplace` repo, `plugins/slideless/skills/<skill-name>/SKILL.md`
+- Plugin skills: `slideless-ai/plugin` repo, `skills/<skill-name>/SKILL.md`
