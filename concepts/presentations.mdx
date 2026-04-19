@@ -1,0 +1,87 @@
+---
+title: "Presentations"
+description: "The lifecycle of a Slideless presentation: creation, updates, archival, and view tracking"
+---
+
+## What a presentation is
+
+A **presentation** is a Slideless record that wraps:
+
+- A single HTML file (≤ 10 MB) stored in private cloud storage
+- One or more **share tokens** (see [Share tokens](/concepts/share-tokens))
+- Metadata: title, version, owner, timestamps, view counters
+
+You create a presentation by uploading HTML through the [`uploadSharedPresentation`](/api-reference/upload-presentation) endpoint or by creating one in the dashboard.
+
+## Anatomy
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | UUIDv7 string | The `shareId` — appears in every share URL |
+| `ownerId` | string | The Slideless user who created it |
+| `organizationId` | string | The org context (in v1, every user has one personal org) |
+| `apiKeyId` | string \| null | Which API key created it (null if uploaded via dashboard) |
+| `title` | string | Display title — visible in the dashboard, not in the share URL |
+| `version` | number | Starts at `1`, auto-bumps on every successful update |
+| `createdAt`, `updatedAt`, `expiresAt` | timestamps | `expiresAt` is null in v1 |
+| `archived` | boolean | Soft-delete flag — archived presentations 404 to viewers |
+| `archivedAt`, `archivedBy` | timestamp / userId | Set when archived |
+| `tokens` | map | Keyed by `tokenId` — see [Share tokens](/concepts/share-tokens) |
+| `totalViews` | number | Sum across all tokens (denormalized for fast list rendering) |
+| `lastViewedAt` | timestamp | Most recent view across any token |
+
+## Lifecycle
+
+```
+created (version=1, totalViews=0)
+  ↓
+updated×N (version=2, 3, …; HTML replaced; URL unchanged; totalViews preserved)
+  ↓
+archived (viewers see 404; can still inspect from the dashboard for audit)
+```
+
+| Transition | How |
+|---|---|
+| Create | `POST /uploadSharedPresentation` (API) or "New presentation" in the dashboard |
+| Update | `POST /updateSharedPresentation` (API) or "Update" in the dashboard |
+| Archive | "Archive" in the dashboard — soft-delete, all share links stop resolving |
+
+Once archived, a presentation cannot be updated. There is no un-archive in v1.
+
+## Storage
+
+The HTML lives in a private GCS bucket (`slideless-ai-storage`) at the path:
+
+```
+shared_presentations/{shareId}/document.html
+```
+
+You never deal with this path directly — Slideless serves the HTML through the [`getSharedPresentation`](/api-reference/get-shared-presentation) endpoint after token validation.
+
+## Size limits
+
+| Resource | Limit | What happens if exceeded |
+|---|---|---|
+| Single HTML file | 10 MB | `413 payload-too-large` from upload/update |
+| Presentations per org | No hard cap in v1 | — |
+| API keys per org | 20 | New key creation fails |
+
+## What gets versioned
+
+When you update, the HTML is **replaced in place** — the previous version is overwritten. Slideless doesn't keep history in v1. The `version` counter increments so you can tell which iteration recipients are looking at, but you can't roll back to an older version through the API.
+
+If you need history, save your HTML in your own version control (git) and re-upload as needed.
+
+## What stays stable across updates
+
+- The `shareId` (and therefore every share URL)
+- All existing share tokens
+- The view counters (`totalViews` and per-token `accessCount`)
+- The owner and organization
+
+## What changes across updates
+
+- The HTML content
+- `version` (auto-increments)
+- `updatedAt`
+- `title` (only if you pass a new one)

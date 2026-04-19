@@ -1,0 +1,89 @@
+---
+title: "API overview"
+description: "Base URL, authentication, error format, and endpoint index for the Slideless HTTP API"
+---
+
+## Base URL
+
+```
+https://europe-west1-slideless-ai.cloudfunctions.net
+```
+
+All endpoints are Cloud Functions in `europe-west1`. There is no API versioning in v1 — the URL above is the only stable one.
+
+## Authentication
+
+Every endpoint (except `getSharedPresentation`, which is token-based) requires the `X-Process-Manager-Key` header:
+
+```
+X-Process-Manager-Key: cko_your_organization_api_key
+```
+
+Two key formats are accepted:
+
+| Prefix | Type | When to use |
+|---|---|---|
+| `cko_` | Organization API key | Almost always |
+| `cka_` | Admin API key | Internal platform tooling only |
+
+See [Authentication](/api-reference/authentication) and [API keys](/concepts/api-keys) for the full story.
+
+## Error format
+
+Errors return a JSON body with `error` (human-readable) and `code` (machine-readable):
+
+```json
+{
+  "error": "Invalid or missing API key.",
+  "code": "unauthenticated"
+}
+```
+
+The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: { message }, requestId }`) — see its [reference page](/api-reference/verify-api-key).
+
+## Status codes
+
+| Status | Meaning |
+|---|---|
+| `200` | Success |
+| `400` | Bad request — missing or invalid arguments |
+| `401` | Missing or invalid API key |
+| `403` | Authenticated but not allowed (wrong owner, revoked token, missing scope) |
+| `404` | Resource not found, or generically returned to prevent enumeration of share IDs |
+| `405` | Wrong HTTP method |
+| `410` | Gone — share expired or presentation archived |
+| `413` | Payload too large (> 10 MB on upload/update) |
+| `500` | Internal error — retry with backoff |
+
+## Endpoint index
+
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
+| [`/uploadSharedPresentation`](/api-reference/upload-presentation) | POST | API key | Create a new presentation |
+| [`/updateSharedPresentation`](/api-reference/update-presentation) | POST | API key | Replace HTML at an existing share (URL preserved) |
+| [`/listMyPresentationsPublic`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
+| [`/getSharedPresentationInfoPublic/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
+| [`/getSharedPresentation/{shareId}`](/api-reference/get-shared-presentation) | GET | Token in URL | Public — returns the raw HTML; increments view counts |
+| [`/verifyApiKey`](/api-reference/verify-api-key) | POST | API key | Validate a key, return its metadata |
+
+## Limits
+
+| Limit | Value |
+|---|---|
+| Upload / update HTML size | 10 MB per request |
+| List response cap | 100 presentations (no cursor pagination in v1) |
+| Per-key rate limit | None enforced in v1 |
+| API keys per organization | 20 |
+
+## CORS
+
+All HTTP endpoints set `cors: true` — they accept browser requests from any origin. The auth header (`X-Process-Manager-Key`) is allowed.
+
+## Idempotency
+
+`uploadSharedPresentation` is **not** idempotent — every call creates a new presentation with a new `shareId`. To re-publish to the same URL, use [`updateSharedPresentation`](/api-reference/update-presentation) instead.
+
+## Next
+
+- **[Authentication](/api-reference/authentication)** — How the `X-Process-Manager-Key` header works.
+- **[Upload a presentation](/api-reference/upload-presentation)** — The most common endpoint, with examples in curl, Node, and Python.

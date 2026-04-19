@@ -1,0 +1,99 @@
+---
+title: "GET /listMyPresentationsPublic"
+description: "List all presentations owned by the authenticated user"
+---
+
+## When to use
+
+Enumerate the presentations created by the API key's user. Returns up to 100 results, ordered by `createdAt` descending.
+
+For full per-presentation metadata (token list, per-token access counts), use [`GET /getSharedPresentationInfoPublic/{shareId}`](/api-reference/get-presentation).
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) |
+
+Recommended scope: `presentations:read`.
+
+## Request
+
+No body, no query parameters. The user is inferred from the API key.
+
+## Response (200)
+
+```json
+{
+  "presentations": [
+    {
+      "id": "0192f1c3-...",
+      "title": "Q4 review",
+      "version": 3,
+      "createdAt": "2026-04-15T10:00:00.000Z",
+      "updatedAt": "2026-04-18T15:30:00.000Z",
+      "archived": false,
+      "totalViews": 47,
+      "lastViewedAt": "2026-04-19T09:12:00.000Z",
+      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+    },
+    ...
+  ]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | UUIDv7 string | The `shareId` |
+| `title` | string | Display title |
+| `version` | number | Current version |
+| `createdAt`, `updatedAt`, `lastViewedAt` | ISO 8601 string \| null | Timestamps |
+| `archived` | boolean | True if archived |
+| `totalViews` | number | Sum of views across all share tokens |
+| `shareUrl` | string \| null | An active share URL (first non-revoked token), or `null` if archived or no live token |
+
+## Pagination
+
+Capped at **100 results** in v1. There is no cursor; if you have more than 100 presentations, the list page in the dashboard is the recommended path.
+
+## Examples
+
+### curl
+
+```bash
+curl -sS \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic
+```
+
+### Node.js
+
+```js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic',
+  { headers: { 'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY } }
+);
+
+const { presentations } = await res.json();
+for (const p of presentations) {
+  console.log(`${p.title} — v${p.version} — ${p.totalViews} views — ${p.shareUrl}`);
+}
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `401` | `unauthenticated` | Missing or invalid API key | Set `X-Process-Manager-Key` |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /getSharedPresentationInfoPublic/{shareId}](/api-reference/get-presentation)** — Full metadata for one presentation, including all share tokens.

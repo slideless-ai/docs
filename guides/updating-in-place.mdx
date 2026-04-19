@@ -1,0 +1,121 @@
+---
+title: "Update a presentation in place"
+description: "Replace the HTML behind an existing share URL — same URL, new content, view counts preserved"
+---
+
+## When to use this
+
+You've already shared a deck. You want to change the content — fix a typo, update a number, add a slide — without:
+
+- Sending a new URL to everyone
+- Losing the view counts and per-token analytics
+- Breaking links you've already pasted in Slack, emails, or docs
+
+This is what `updateSharedPresentation` is for.
+
+## What stays the same
+
+| Stays the same | What changes |
+|---|---|
+| `shareId` | `version` (auto-bumps by 1) |
+| Every share token (same URLs) | `updatedAt` |
+| `totalViews` and per-token `accessCount` | The HTML content |
+| Owner, organization, title (unless you pass a new one) | |
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+```
+
+Headers:
+
+| Header | Value |
+|---|---|
+| `X-Process-Manager-Key` | Your `cko_…` API key (scope `presentations:write`) |
+| `Content-Type` | `application/json` |
+
+Body:
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "html": "<!doctype html>... new HTML ...",
+  "title": "Optional new title"
+}
+```
+
+Omit `title` to keep the existing one.
+
+Response (200):
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "version": 2,
+  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=..."
+}
+```
+
+Full reference: [`POST /updateSharedPresentation`](/api-reference/update-presentation).
+
+## Walkthrough
+
+### 1. Find the shareId
+
+If you saved the response from [`uploadSharedPresentation`](/api-reference/upload-presentation), the `shareId` is in there. Otherwise list your decks:
+
+```bash
+curl -sS \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  https://europe-west1-slideless-ai.cloudfunctions.net/listMyPresentationsPublic
+```
+
+The shareId is also embedded in the share URL: `https://app.slideless.ai/share/{shareId}?token=...`.
+
+### 2. Re-upload
+
+```bash
+SHARE_ID="0192f1c3-..."
+
+curl -sS -X POST \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @<(jq -Rs --arg id "$SHARE_ID" '{shareId: $id, html: .}' < ./deck-v2.html) \
+  https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+```
+
+Response includes the bumped `version` and the same `shareUrl`.
+
+### 3. Notify recipients (optional)
+
+Recipients see the new content the next time they reload. If the deck is open in their browser already, they need to refresh. The URL itself doesn't change.
+
+## What can't be updated
+
+- **Archived presentations** — once archived, no updates accepted (`410 gone`).
+- **Presentations you don't own** — `403 forbidden`. The API key's user must match the owner.
+
+## Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| `400` | `invalid-argument` | Missing `shareId` or `html`, or bad types |
+| `401` | `unauthenticated` | Missing or invalid API key |
+| `403` | `forbidden` | Not the owner, or missing `presentations:write` scope |
+| `404` | `not-found` | No presentation with that shareId |
+| `410` | `gone` | Presentation has been archived |
+| `413` | `payload-too-large` | HTML exceeds 10 MB |
+
+## Operational patterns
+
+**CI on tag push.** A GitHub Action that re-publishes a release deck whenever you push a new tag. Same URL on the website, fresh content every release.
+
+**Daily cron.** A Cloud Scheduler job that regenerates a metrics deck every morning and re-publishes it.
+
+**Editorial workflow.** Author drafts → reviewer comments → author re-publishes. The shared URL given to stakeholders never changes; the content under it improves.
+
+## Next
+
+- **[Share tokens concept](/concepts/share-tokens)** — Why view counts survive updates.
+- **[Use with Claude](/guides/with-claude)** — Run this loop interactively with the `update-presentation` skill.

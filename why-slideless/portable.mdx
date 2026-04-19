@@ -1,0 +1,49 @@
+---
+title: "HTML opens anywhere"
+description: "Anyone with a browser can view a Slideless deck — no PowerPoint license, no Keynote, no Google account"
+---
+
+## The PowerPoint problem
+
+Sending a `.pptx` is harder than it should be:
+
+- The recipient needs **PowerPoint, Keynote, LibreOffice, or Google Slides** installed (and not all of them render the file the same way).
+- **Custom fonts** silently fall back to defaults if the recipient doesn't have them — the deck looks wrong on their machine.
+- **Animations and transitions** break across versions and across apps.
+- **File size** is heavy: 30 MB+ for a deck with images, multiplied by everyone you email it to.
+- The receiver has to **download** the file before seeing anything — friction at the worst possible moment.
+
+Even Google Slides — which removes the install requirement — needs a Google account to view properly, breaks for users behind enterprise SSO walls, and doesn't render well on mobile.
+
+## Why HTML wins
+
+A self-contained HTML file is the most portable visual format on the planet:
+
+- **Every device has a browser.** Phones, tablets, laptops, kiosks, smart TVs — if it can open a web page, it can open your deck.
+- **No app to install.** No PowerPoint license, no Keynote, no Google account, no Reveal.js viewer.
+- **No font fallback.** You embed web fonts in the HTML; everyone sees the same typography.
+- **No version drift.** The browser is the runtime. There is no "PowerPoint 2019 vs 2024" issue.
+- **One tap to open.** A URL works on lock-screen previews, in chat threads, in email signatures, in QR codes.
+
+## Side-by-side
+
+| | `.pptx` | `.key` | Google Slides | **Slideless** |
+|---|---|---|---|---|
+| Recipient install required | PowerPoint / Keynote / LibreOffice | Keynote (Mac/iOS only) | None (browser) | **None (browser)** |
+| Account required | None | Apple ID for sharing | Google account | **None** |
+| Mobile rendering | Poor (zoom + pan) | OK in Keynote app | OK in Slides app | **Native — responsive HTML** |
+| Custom fonts | Often missing | Embedded | Cloud-rendered | **Embedded in HTML** |
+| Animations | Brittle across apps | Apple-only | Subset of PowerPoint | **Whatever the browser supports** |
+| Open friction | Download → app launch | Download → app launch | Click → sign-in (sometimes) | **One tap, instant** |
+| Update without re-sending | No (re-attach) | No (re-attach) | Yes (same link) | **Yes (same link, view count preserved)** |
+
+## What this means in practice
+
+You give a prospect a URL. They tap it on their phone in a meeting room. The deck renders in landscape, fullscreen, with your fonts, your colors, your animations. They never had to install anything, sign in to anything, or download anything. You watch the view count tick up in your dashboard.
+
+That's the promise of HTML for presentations.
+
+## Next
+
+- **[Designed for any device](/why-slideless/dynamic)** — Why responsive HTML beats fixed 16:9.
+- **[Generate, share, update from a terminal](/why-slideless/shareable)** — The killer combo with Claude.

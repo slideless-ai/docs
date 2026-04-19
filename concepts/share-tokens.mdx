@@ -1,0 +1,77 @@
+---
+title: "Share tokens"
+description: "Per-recipient links with independent view counters and granular revocation"
+---
+
+## What a share token is
+
+A **share token** is the secret embedded in a share URL:
+
+```
+https://app.slideless.ai/share/{shareId}?token={shareToken}
+```
+
+A presentation can have many tokens. Each one:
+
+- Is independently revocable
+- Tracks its own view count and `lastAccessedAt`
+- Has a name (e.g. `default`, `John Doe`, `q4-board`) for human readability
+- Is generated server-side as **48 random bytes** (384 bits of entropy), encoded base64url
+
+## Why multiple tokens
+
+A single presentation can be shared with many people, each via their own token, so you can:
+
+| Scenario | What you do |
+|---|---|
+| Send a deck to two prospects, see who's looking | Create one token per prospect, watch `accessCount` for each |
+| One contact leaves their company | Revoke their token — others keep working |
+| Run an A/B test on send copy | Different tokens in different emails, compare `lastAccessedAt` |
+| Public version + private version | One default token, one revocable "guest" token |
+
+The `default` token is created automatically on upload. Add more from the dashboard's presentation detail page or via the `addPresentationToken` callable function.
+
+## Lifecycle
+
+```
+created (revoked=false, accessCount=0)
+  ↓
+each view: accessCount += 1, lastAccessedAt updated
+  ↓
+revoked (revoked=true, viewers see 403)
+```
+
+Revocation is permanent in v1 — there is no un-revoke. Revoking one token never affects the others.
+
+## Anatomy
+
+| Field | Type | Description |
+|---|---|---|
+| `tokenId` | UUIDv7 string | The internal ID (stable, used for revocation) |
+| `token` | base64url string | The actual secret in the URL — 384 bits of entropy |
+| `name` | string | Human-readable label (e.g. `"default"`, `"John at Acme"`) |
+| `createdAt`, `createdBy` | timestamp / userId | When and by whom |
+| `revoked` | boolean | If `true`, the share URL returns 403 |
+| `revokedAt`, `revokedBy` | timestamp / userId / null | Set on revocation |
+| `lastAccessedAt` | timestamp / null | Most recent view |
+| `accessCount` | number | Total views via this token |
+
+## Security guarantees
+
+Share tokens are designed to be safe to put in URLs:
+
+- **384 bits of entropy** — far beyond brute-forcing. No rate limit needed for this reason alone.
+- **Constant-time comparison** — token validation iterates all tokens and uses bitwise XOR to prevent timing attacks. An attacker can't infer how close their guess was from the response time.
+- **Generic 404s** — if the token is wrong, the share ID doesn't exist, or the presentation is archived, you get the same `404` response. There's no way to enumerate share IDs by probing.
+
+## What a token does NOT do
+
+- It doesn't authenticate the viewer (no login required, no identity checked).
+- It doesn't expire (in v1 — `expiresAt` exists in the data model but isn't enforced).
+- It doesn't restrict who can view — anyone with the URL can open it. Use revocation when a token shouldn't be valid anymore.
+
+## Operational notes
+
+- **Don't shorten the URL** through public link shorteners — they often log clicks and can leak the token.
+- **Treat the URL like a password** for the deck content. If you wouldn't email the content directly, don't email the URL.
+- **For high-sensitivity decks** that need access control (login, allowlist), Slideless isn't the right tool today. The share-token model assumes public-with-tracking, not gated access.

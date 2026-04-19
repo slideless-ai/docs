@@ -1,0 +1,134 @@
+---
+title: "GET /getSharedPresentationInfoPublic/{shareId}"
+description: "Full metadata for a single presentation, including the list of share tokens with per-token access counts"
+---
+
+## When to use
+
+Inspect one presentation in detail — full token list, per-token access counts, last-accessed timestamps, status. The owner of the presentation must match the API key's user.
+
+For a list of all your presentations, use [`GET /listMyPresentationsPublic`](/api-reference/list-presentations) instead.
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfoPublic/{shareId}
+```
+
+The `shareId` is in the URL path.
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) — must belong to the presentation's owner |
+
+Recommended scope: `presentations:read`.
+
+## Path parameters
+
+| Param | Type | Description |
+|---|---|---|
+| `shareId` | UUIDv7 string | The presentation ID |
+
+## Response (200)
+
+```json
+{
+  "id": "0192f1c3-...",
+  "ownerId": "user-uuid",
+  "organizationId": "org-uuid",
+  "title": "Q4 review",
+  "version": 3,
+  "createdAt": "2026-04-15T10:00:00.000Z",
+  "updatedAt": "2026-04-18T15:30:00.000Z",
+  "expiresAt": null,
+  "archived": false,
+  "archivedAt": null,
+  "totalViews": 47,
+  "lastViewedAt": "2026-04-19T09:12:00.000Z",
+  "primaryShareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...",
+  "tokens": [
+    {
+      "tokenId": "0192f1c3-...",
+      "name": "default",
+      "createdAt": "2026-04-15T10:00:00.000Z",
+      "revoked": false,
+      "revokedAt": null,
+      "lastAccessedAt": "2026-04-19T09:12:00.000Z",
+      "accessCount": 42,
+      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+    },
+    {
+      "tokenId": "0192f1c3-...",
+      "name": "John at Acme",
+      "createdAt": "2026-04-16T11:00:00.000Z",
+      "revoked": false,
+      "revokedAt": null,
+      "lastAccessedAt": "2026-04-17T14:22:00.000Z",
+      "accessCount": 5,
+      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=GhIjKl..."
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | The `shareId` |
+| `ownerId`, `organizationId` | string | Ownership context |
+| `title`, `version`, `archived` | various | See [Presentations concept](/concepts/presentations) |
+| `totalViews`, `lastViewedAt` | aggregated | Across all tokens |
+| `primaryShareUrl` | string \| null | Convenience — first non-revoked token's URL |
+| `tokens` | array | One entry per share token (active or revoked) |
+
+Each token entry:
+
+| Field | Description |
+|---|---|
+| `tokenId` | Internal ID (used for revocation) |
+| `name` | Human-readable label |
+| `accessCount` | Total views via this specific token |
+| `lastAccessedAt` | Most recent view through this token |
+| `revoked` + `revokedAt` | Revocation status |
+| `shareUrl` | The share URL embedding this token |
+
+## Examples
+
+### curl
+
+```bash
+SHARE_ID="0192f1c3-..."
+
+curl -sS \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfoPublic/$SHARE_ID"
+```
+
+### Node.js
+
+```js
+const shareId = '0192f1c3-...';
+
+const res = await fetch(
+  `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentationInfoPublic/${shareId}`,
+  { headers: { 'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY } }
+);
+
+const info = await res.json();
+console.log(`${info.title} — v${info.version} — ${info.totalViews} total views`);
+for (const t of info.tokens) {
+  console.log(`  • ${t.name} (${t.accessCount} views, ${t.revoked ? 'revoked' : 'active'})`);
+}
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Missing `shareId` in path | Include the share ID after the slash |
+| `401` | `unauthenticated` | Missing or invalid API key | Set `X-Process-Manager-Key` |
+| `403` | `permission-denied` | Key's user is not the owner | Use a key from the owner's account |
+| `404` | `not-found` | No presentation with that ID | Verify the ID via `listMyPresentationsPublic` |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
+| `500` | `internal` | Backend error | Retry with backoff |

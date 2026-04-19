@@ -1,0 +1,114 @@
+---
+title: "POST /verifyApiKey"
+description: "Validate an API key and return its metadata — name, scopes, organization, last-used time"
+---
+
+## When to use
+
+Test that an API key is valid before making destructive calls. Useful at the start of CI jobs, scripts, or interactive setup flows. The marketplace `setup-slideless` skill uses this endpoint to confirm a freshly-created key works.
+
+The endpoint is intentionally cheap — it touches Firestore once but does no storage or compute work.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `X-Process-Manager-Key` | The key you want to verify (`cko_…` or `cka_…`) |
+
+No request body.
+
+## Response (200)
+
+For an organization key (`cko_`):
+
+```json
+{
+  "success": true,
+  "data": {
+    "type": "org-api-key",
+    "keyName": "claude-skill",
+    "keyPrefix": "cko_abcd",
+    "scopes": ["presentations:write", "presentations:read"],
+    "organizationId": "org-uuid",
+    "organizationName": "Romain's workspace",
+    "createdAt": "2026-04-15T10:00:00.000Z",
+    "expiresAt": null,
+    "lastUsedAt": "2026-04-19T09:12:00.000Z"
+  },
+  "requestId": "0192f1c3-..."
+}
+```
+
+For an admin key (`cka_`), `organizationId` and `organizationName` are `null`; `type` is `"admin-api-key"`.
+
+| Field | Type | Description |
+|---|---|---|
+| `success` | boolean | Always `true` on 200 |
+| `data.type` | string | `"org-api-key"` or `"admin-api-key"` |
+| `data.keyName` | string \| null | Human-readable label given at creation |
+| `data.keyPrefix` | string \| null | First 8 chars (`cko_abcd`) — safe to display |
+| `data.scopes` | array of strings | The scopes attached to this key |
+| `data.organizationId` | string \| null | The org context (null for admin keys) |
+| `data.organizationName` | string \| null | The org's display name (null for admin keys) |
+| `data.createdAt`, `data.expiresAt`, `data.lastUsedAt` | ISO 8601 string \| null | Timestamps |
+| `requestId` | UUIDv7 string | Trace ID — include in support requests |
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `401` | (in `error.message`) | Missing, malformed, or revoked key | Send a valid `cko_` or `cka_` value in `X-Process-Manager-Key` |
+| `405` | (in `error.message`) | Used GET/PUT/etc. | Use `POST` |
+| `500` | (in `error.message`) | Backend error fetching metadata | Retry; if persistent, include `requestId` in support request |
+
+Error response shape:
+
+```json
+{
+  "success": false,
+  "error": { "message": "Invalid or missing API key." },
+  "requestId": "0192f1c3-..."
+}
+```
+
+This is slightly different from the `{ error, code }` shape used by the share endpoints — handle both formats if your client code is generic.
+
+## Examples
+
+### curl
+
+```bash
+curl -sS -X POST \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey
+```
+
+### Node.js
+
+```js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey',
+  {
+    method: 'POST',
+    headers: { 'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY }
+  }
+);
+
+const body = await res.json();
+if (!body.success) {
+  throw new Error(`Invalid Slideless key: ${body.error?.message}`);
+}
+console.log(`Authenticated as ${body.data.organizationName} with scopes: ${body.data.scopes.join(', ')}`);
+```
+
+## Operational use
+
+- **At the start of long-running scripts.** Fail fast if the key is wrong before doing any real work.
+- **In CI before deploys.** Make sure the secret in your CI vault is still valid.
+- **In setup wizards.** The marketplace `setup-slideless` skill calls this immediately after the user pastes the key, so users get instant feedback.

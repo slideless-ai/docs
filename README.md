@@ -1,55 +1,33 @@
-# Mintlify Starter Kit
+# Slideless Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Public documentation site for [Slideless](https://app.slideless.ai) — host and share self-contained HTML presentations with public links, view tracking, and update-in-place.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+Built on [Mintlify](https://mintlify.com). Deployed from this repo's `main` branch.
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+## Structure
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+- `index.mdx`, `quickstart.mdx` — landing + getting-started
+- `why-slideless/` — product positioning (portable, dynamic, shareable)
+- `concepts/` — presentations, share tokens, API keys
+- `guides/` — end-to-end flows (with Claude, via API, update in place)
+- `api-reference/` — per-endpoint reference with request/response schemas
+- `skills/` — Claude Code marketplace skill index
+- `AGENTS.md` — AI agent navigation guide (required reading before editing)
+- `llms.txt`, `robots.txt` — SEO + LLM indexing
+- `docs.json` — Mintlify configuration (nav, branding, fonts, colors)
 
-## AI-assisted writing
-
-Set up your AI coding tool to work with Mintlify:
+## Local preview
 
 ```bash
-npx skills add https://mintlify.com/docs
-```
-
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
-
-See the [AI tools guides](/ai-tools) for tool-specific setup.
-
-## Development
-
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
 npm i -g mint
+mint dev       # http://localhost:3000
+mint broken-links
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+## Publishing
 
-```
-mint dev
-```
+Push to `main` — Mintlify's GitHub app auto-deploys to `docs.slideless.ai` (once the domain is wired up in the Mintlify dashboard).
 
-View your local preview at `http://localhost:3000`.
+## Contributing
 
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+See [CONTRIBUTING.md](CONTRIBUTING.md).

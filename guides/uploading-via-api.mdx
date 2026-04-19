@@ -1,0 +1,148 @@
+---
+title: "Upload via API"
+description: "Publish a presentation from a script, CI pipeline, or any HTTP client"
+---
+
+## When to use this
+
+You want to upload a presentation from somewhere other than the dashboard or a Claude session — for example:
+
+- A CI/CD job that publishes a release deck on every tag
+- A cron task that re-publishes a daily metrics deck
+- Any custom integration
+
+The skill-based path is documented in [Use Slideless with Claude](/guides/with-claude). This guide is the raw HTTP version.
+
+## Prerequisites
+
+- An **organization API key** with `presentations:write` (see [API keys](/concepts/api-keys))
+- The HTML you want to share, ≤ 10 MB
+- A way to make HTTPS POST requests (curl, Node, Python — any will do)
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation
+```
+
+Headers:
+
+| Header | Value |
+|---|---|
+| `X-Process-Manager-Key` | Your `cko_…` API key |
+| `Content-Type` | `application/json` |
+
+Body:
+
+```json
+{
+  "title": "Display title (required)",
+  "html": "<!doctype html><html>... full HTML ..."
+}
+```
+
+Response (200):
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "tokenId": "0192f1c3-...",
+  "token": "AbCdEf...384-bit-base64url...",
+  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+}
+```
+
+Full reference: [`POST /uploadSharedPresentation`](/api-reference/upload-presentation).
+
+## curl
+
+```bash
+SLIDELESS_API_KEY="cko_your_key_here"
+TITLE="My Q4 deck"
+HTML_PATH="./deck.html"
+
+curl -sS -X POST \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @<(jq -Rs --arg title "$TITLE" '{html: ., title: $title}' < "$HTML_PATH") \
+  https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation
+```
+
+The `jq -Rs` reads the file as a single JSON-escaped string. Don't try to inline raw HTML into a JSON payload — quotes and backslashes will break it.
+
+## Node.js
+
+```js
+import { readFile } from 'node:fs/promises';
+
+const apiKey = process.env.SLIDELESS_API_KEY;
+const html = await readFile('./deck.html', 'utf-8');
+
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation',
+  {
+    method: 'POST',
+    headers: {
+      'X-Process-Manager-Key': apiKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ title: 'My Q4 deck', html })
+  }
+);
+
+if (!res.ok) {
+  throw new Error(`Upload failed: ${res.status} ${await res.text()}`);
+}
+
+const { shareUrl } = await res.json();
+console.log('Published:', shareUrl);
+```
+
+## Python
+
+```python
+import os, json, requests
+
+api_key = os.environ['SLIDELESS_API_KEY']
+with open('deck.html', 'r', encoding='utf-8') as f:
+    html = f.read()
+
+res = requests.post(
+    'https://europe-west1-slideless-ai.cloudfunctions.net/uploadSharedPresentation',
+    headers={
+        'X-Process-Manager-Key': api_key,
+        'Content-Type': 'application/json'
+    },
+    data=json.dumps({'title': 'My Q4 deck', 'html': html})
+)
+res.raise_for_status()
+
+print('Published:', res.json()['shareUrl'])
+```
+
+## Two URLs, two purposes
+
+Don't confuse the **share URL** (what you give recipients) with the **fetch URL** (where the raw HTML lives):
+
+| Purpose | URL | When |
+|---|---|---|
+| **Share URL** — recipients open this | `https://app.slideless.ai/share/{shareId}?token={token}` | What `uploadSharedPresentation` returns; what you send people |
+| **Fetch URL** — raw HTML | `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}?token={token}` | Used internally by the share viewer iframe; you rarely need this |
+
+If you embed the deck in an iframe yourself, use the fetch URL (it returns `text/html`). For everything else, use the share URL.
+
+## Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| `400` | `invalid-argument` | Missing `html` or `title` field |
+| `401` | `unauthenticated` | Missing or invalid API key |
+| `403` | `forbidden` | Key lacks `presentations:write` scope |
+| `405` | `method-not-allowed` | Use POST |
+| `413` | `payload-too-large` | HTML exceeds 10 MB |
+| `500` | `internal` | Backend error — retry with exponential backoff |
+
+## Next
+
+- **[Update in place](/guides/updating-in-place)** — Re-publish without changing the URL.
+- **[Full API reference](/api-reference/upload-presentation)** — Field-by-field details.

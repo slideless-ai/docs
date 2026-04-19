@@ -1,0 +1,82 @@
+---
+title: "Marketplace skills"
+description: "Claude Code skills for generating, sharing, and managing Slideless presentations from any AI session"
+---
+
+## What this is
+
+The [`slideless-marketplace`](https://github.com/slideless-ai/marketplace) is a Claude Code plugin. Once installed, every `slideless-*` skill is available in any Claude session — Claude can generate decks, publish them, update them, list them, and export them, all by name.
+
+```
+claude plugin install slideless-ai/marketplace
+```
+
+After install, run `setup-slideless` once to authenticate, then call any other skill at will.
+
+## The skills
+
+| Skill | Purpose | Backend endpoint |
+|---|---|---|
+| **`setup-slideless`** | Walk the user through getting an org API key, saving it to `~/.codika/.env`, and verifying it works. Run once per machine. | [`POST /verifyApiKey`](/api-reference/verify-api-key) |
+| **`generate-presentation`** | Generate a self-contained HTML presentation in a curated style (`slim-tabbed` for workshop content, `full-deck` for cinematic slides). Outputs a local `.html` file. | None — purely local |
+| **`share-presentation`** | Upload a local HTML file to Slideless and return a public share URL. Optionally update an existing share in place. | [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) or [`POST /updateSharedPresentation`](/api-reference/update-presentation) |
+| **`update-presentation`** | Replace the HTML behind an existing share URL — same URL, view counts preserved, version bumped. | [`POST /updateSharedPresentation`](/api-reference/update-presentation) |
+| **`list-presentations`** | List all shared presentations with titles, versions, view counts, and URLs. | [`GET /listMyPresentationsPublic`](/api-reference/list-presentations) |
+| **`get-presentation`** | Fetch full metadata for one presentation, including each share token's individual access count and last-accessed time. | [`GET /getSharedPresentationInfoPublic/{shareId}`](/api-reference/get-presentation) |
+| **`export-presentation-pdf`** | Convert a local HTML deck to a landscape PDF via a bundled Puppeteer runner. Auto-injects print CSS. | None — purely local |
+
+## A typical session
+
+```
+> /skill setup-slideless           # one-time
+  → key stored in ~/.codika/.env, verified
+
+> /skill generate-presentation
+  → topic: "Q4 results — revenue, churn, headcount"
+  → style: full-deck
+  → wrote ./q4-results.html
+
+> /skill share-presentation
+  → html_path: ./q4-results.html
+  → title: "Q4 Results"
+  → published: https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...
+
+[ ... edit, regenerate, iterate ... ]
+
+> /skill update-presentation
+  → share_id: 0192f1c3-...
+  → html_path: ./q4-results-v2.html
+  → updated to v2 (same URL)
+
+> /skill get-presentation
+  → share_id: 0192f1c3-...
+  → 47 views across 2 tokens, last viewed 2h ago
+```
+
+## Skill source code
+
+Each skill lives in its own folder in the marketplace repo with a `SKILL.md` describing inputs, prerequisites, and steps. Read the canonical source if you want to know exactly what a skill does:
+
+- [`setup-slideless/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/setup-slideless/SKILL.md)
+- [`generate-presentation/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/generate-presentation/SKILL.md)
+- [`share-presentation/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/share-presentation/SKILL.md)
+- [`update-presentation/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/update-presentation/SKILL.md)
+- [`list-presentations/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/list-presentations/SKILL.md)
+- [`get-presentation/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/get-presentation/SKILL.md)
+- [`export-presentation-pdf/SKILL.md`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/export-presentation-pdf/SKILL.md)
+
+## Generation styles
+
+The `generate-presentation` skill ships two styles, each with a worked example:
+
+| Style | When to use | Source |
+|---|---|---|
+| **`slim-tabbed`** | Workshop-style content — tabs across the top, dense text, code samples, side-by-side comparisons. Best for documentation-as-deck. | [GitHub](https://github.com/slideless-ai/marketplace/tree/main/plugins/slideless/skills/generate-presentation/styles/slim-tabbed) |
+| **`full-deck`** | Cinematic, slide-by-slide presentations — large headlines, sparse content, transitions. Best for pitches and talks. | [GitHub](https://github.com/slideless-ai/marketplace/tree/main/plugins/slideless/skills/generate-presentation/styles/full-deck) |
+
+Each style has a `README.md` (when to pick it), `how-to-build.md` (how to author it), and `example.html` (production reference). When in doubt about a CSS or JS pattern, the `example.html` is the source of truth.
+
+## Next
+
+- **[Use Slideless with Claude](/guides/with-claude)** — Step-by-step guide to running this loop interactively.
+- **[API reference](/api-reference/overview)** — Endpoints these skills call.

@@ -1,0 +1,114 @@
+---
+title: "Use Slideless with Claude"
+description: "Generate, share, and update presentations from Claude Code via the slideless marketplace plugin"
+---
+
+## Overview
+
+The [`slideless-marketplace`](https://github.com/slideless-ai/marketplace) is a Claude Code plugin that lets Claude:
+
+1. **Generate** a self-contained HTML presentation in a curated style.
+2. **Share** it — get back a public URL to send to anyone.
+3. **Update** an existing share in place — same URL, new content.
+4. **List** and **get** your shared presentations.
+5. **Export** to PDF locally if you need a file artifact.
+
+All published versions are fully self-contained — no Codika backend required for `generate-presentation` or `export-presentation-pdf`. The other skills call the Slideless HTTP API.
+
+## Step 1 — Install the plugin
+
+In Claude Code, install the plugin marketplace:
+
+```bash
+claude plugin install slideless-ai/marketplace
+```
+
+Once installed, all `slideless-*` skills are available in any Claude session.
+
+## Step 2 — Set up authentication
+
+Run the [`setup-slideless`](https://github.com/slideless-ai/marketplace/blob/main/plugins/slideless/skills/setup-slideless/SKILL.md) skill once:
+
+```
+/skill setup-slideless
+```
+
+It walks you through:
+
+1. Signing in to https://app.slideless.ai
+2. Creating an organization API key (scope `presentations:write`)
+3. Storing it in `~/.codika/.env` as `SLIDELESS_API_KEY=cko_...`
+4. Verifying the key with the [`verifyApiKey`](/api-reference/verify-api-key) endpoint
+
+After this, every other slideless skill picks the key up automatically.
+
+## Step 3 — Generate and share
+
+Two skills, used together:
+
+```
+/skill generate-presentation
+> Topic: Q4 results — revenue, churn, headcount
+> Style: full-deck (cinematic) or slim-tabbed (workshop)
+```
+
+Claude writes a self-contained HTML file (typically a few hundred KB) into your working directory. Then:
+
+```
+/skill share-presentation
+> html_path: ./q4-results.html
+> title: Q4 Results
+```
+
+Claude calls [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) with the file's contents and prints the returned `shareUrl`. Send the URL to anyone — they open it in any browser.
+
+## Step 4 — Iterate and re-publish
+
+Tweaks to the deck? Re-run the generator (or edit the HTML directly), then:
+
+```
+/skill update-presentation
+> share_id: <the shareId from the previous step>
+> html_path: ./q4-results.html
+```
+
+Calls [`POST /updateSharedPresentation`](/api-reference/update-presentation). The URL stays the same. Recipients refresh and see the new content. The view counter keeps incrementing from where it was.
+
+## Step 5 — List and inspect
+
+```
+/skill list-presentations
+```
+
+Calls [`GET /listMyPresentationsPublic`](/api-reference/list-presentations) and prints all your decks with titles, versions, share URLs, and view counts.
+
+```
+/skill get-presentation
+> share_id: <a shareId>
+```
+
+Calls [`GET /getSharedPresentationInfoPublic/<shareId>`](/api-reference/get-presentation) and prints the full metadata including each share token's individual access count and last-accessed time.
+
+## Local PDF export
+
+For users who need a file artifact (e.g. attach to an email):
+
+```
+/skill export-presentation-pdf
+> html_path: ./q4-results.html
+```
+
+Runs a local Puppeteer process that prints the HTML to a landscape PDF with print-friendly CSS injected. No backend call — purely local.
+
+## Available skills (full list)
+
+See the [Marketplace Skills overview](/skills/overview) for the canonical list with descriptions and which API endpoint each one calls.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `401 unauthenticated` | `SLIDELESS_API_KEY` missing or wrong | Re-run `setup-slideless` |
+| `403 forbidden` on upload | Key missing `presentations:write` scope | Create a new key with the right scope |
+| `413 payload-too-large` | HTML > 10 MB | Slim down — inline fewer base64 images, drop unused JS |
+| `404` when opening share URL | Token typo, presentation archived, or share ID wrong | Re-run `share-presentation` to get a fresh URL |

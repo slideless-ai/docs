@@ -1,0 +1,61 @@
+---
+title: "Designed for any device"
+description: "Responsive HTML adapts to phones, tablets, projectors, and 4K displays — PowerPoint's fixed 16:9 doesn't"
+---
+
+## The fixed-canvas problem
+
+PowerPoint and Keynote were designed in an era when slides were projected. Every deck is built for a single canvas — usually 16:9 at 1920×1080. The moment that assumption breaks, the deck does too:
+
+- **On a phone**, slides shrink to thumbnails — the audience zooms and pans through paragraphs.
+- **On a 4K monitor**, the deck either letterboxes (huge black bars) or pixelates.
+- **In a vertical layout** (think a tablet held portrait), the slide is rotated or cropped.
+- **Over a video call**, the share window forces the slide into whatever aspect ratio your meeting app chose.
+- **Embedded** in a webpage, blog, or wiki — `.pptx` simply doesn't.
+
+The deck author has no control over any of this. The same file looks wildly different to every viewer.
+
+## Responsive HTML, designed for the browser
+
+A Slideless deck is just HTML. That means it gets the entire toolbox of modern web rendering:
+
+- **Responsive layouts** — the same deck reflows for a phone, a tablet, or a giant display.
+- **Fullscreen API** — the share viewer's fullscreen toggle works correctly on every device, including iOS, where PowerPoint's fullscreen typically doesn't.
+- **Touch interactions** — swipe to advance, pinch to zoom into a chart, tap a hotspot to expand a callout.
+- **Dark mode** — `prefers-color-scheme` lets your deck adapt to the viewer's theme.
+- **Web fonts** — pull from Google Fonts, Fontshare, or self-host. Same rendering everywhere.
+- **Embeddable** — drop the share URL into an `<iframe>` and ship the deck inside a website, doc, or notebook.
+
+## Present from a phone
+
+Open the share URL on your phone. Tap the fullscreen icon in the bottom-right of the viewer. You're now presenting from your phone — landscape, edge-to-edge, your fonts, your colors. Plug into HDMI via a USB-C dongle and you're presenting on a TV.
+
+This isn't a parlor trick — it's the whole point. PowerPoint requires the PowerPoint app on a laptop. A Slideless deck just needs a browser.
+
+## What the viewer chrome does for you
+
+Every share URL opens inside a thin Slideless wrapper:
+
+| Affordance | What it does |
+|---|---|
+| Card border | Frames the deck so it doesn't bleed to the browser edges in non-fullscreen mode |
+| Fullscreen toggle | Reliable cross-device fullscreen via the Fullscreen API |
+| Download menu | Recipients can grab the HTML or print to PDF (landscape, color preserved) |
+| Footer | Subtle "Made with Slideless" link — your branding stays clean |
+| Sandboxed iframe | The deck runs isolated from the page chrome — your scripts can't read the wrapper, the wrapper can't read your scripts |
+
+## Authoring guidance
+
+If you're authoring HTML for Slideless (or asking Claude to), follow web responsive design — not slide-design — instincts:
+
+- Use `vw`/`vh` and `clamp()` for typography that scales with the viewport
+- Build with CSS Grid or Flexbox; avoid pixel-pinning every element
+- Test in DevTools at common breakpoints: 360×640 (phone), 768×1024 (tablet), 1920×1080 (desktop)
+- Embed fonts with `@font-face` — don't rely on the viewer's installed fonts
+
+The Claude marketplace skills (`generate-presentation`) follow these patterns by default.
+
+## Next
+
+- **[Generate, share, update from a terminal](/why-slideless/shareable)** — The Slideless + Claude loop.
+- **[Use with Claude](/guides/with-claude)** — Have Claude author the responsive HTML for you.

@@ -1,0 +1,95 @@
+---
+title: "GET /getSharedPresentation/{shareId}"
+description: "Public endpoint that returns the raw HTML of a shared presentation, gated by an unguessable token in the URL"
+---
+
+## When to use
+
+Fetch the raw HTML of a presentation. This is the endpoint the Slideless share viewer uses internally to load the deck into its iframe.
+
+You rarely call this directly — most integrations use the [share URL](/concepts/share-tokens) (`https://app.slideless.ai/share/{shareId}?token=...`), which renders the deck inside the Slideless viewer chrome. Use this raw endpoint only if you're embedding a deck into a custom iframe and want to skip the viewer.
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}?token={token}
+```
+
+## Auth
+
+**No header required.** Access is gated by the `token` query parameter — an unguessable 384-bit value created at upload time.
+
+## Path / query parameters
+
+| Param | Where | Description |
+|---|---|---|
+| `shareId` | path | The presentation ID |
+| `token` | query string | The share token (URL-safe base64url) |
+
+## Response
+
+### Success (200)
+
+`Content-Type: text/html; charset=utf-8` — the raw HTML body. Headers also include:
+
+```
+X-Content-Type-Options: nosniff
+Cache-Control: private, no-cache
+```
+
+Side effects (fire-and-forget — do not block the response):
+
+- Increments the matched token's `accessCount`
+- Updates the token's `lastAccessedAt`
+- Increments the presentation's `totalViews`
+- Updates the presentation's `lastViewedAt`
+
+### Errors
+
+| Status | Code | When |
+|---|---|---|
+| `400` | `invalid-argument` | Missing `shareId` in path |
+| `403` | `revoked` | The token has been revoked |
+| `404` | `not-found` | Generic — also returned for "share doesn't exist", "token wrong", "presentation archived" (intentionally indistinct to prevent share-ID enumeration) |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. |
+| `410` | `expired` | Presentation has an expiration set and it's past |
+| `500` | `internal` | Backend error |
+
+## Why the 404s look the same
+
+To prevent attackers from probing share IDs, Slideless returns a generic `404 not-found` for any of:
+
+- The share ID doesn't exist
+- The share ID exists but the token is wrong
+- The share ID exists but is archived
+- No `token` query parameter was provided
+
+There's no way to tell from the response which of these happened. This is intentional.
+
+## Example
+
+```bash
+curl -i "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-...?token=AbCdEf..."
+```
+
+Returns `200` with the HTML body, `Content-Type: text/html`.
+
+## Embedding pattern
+
+If you're building a custom viewer and want to load the deck into an iframe yourself:
+
+```html
+<iframe
+  src="https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-...?token=AbCdEf..."
+  sandbox="allow-scripts"
+  width="100%"
+  height="600"
+></iframe>
+```
+
+For most use cases, **don't do this** — share the [Slideless viewer URL](https://app.slideless.ai/share/...) instead. It includes fullscreen, download, the "Made with Slideless" footer, and proper sandboxing without you having to maintain it.
+
+## Next
+
+- **[Share tokens concept](/concepts/share-tokens)** — Why tokens are safe in URLs.
+- **[POST /uploadSharedPresentation](/api-reference/upload-presentation)** — How tokens are created.

@@ -1,0 +1,59 @@
+# Slideless
+
+> Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. You upload the HTML through an HTTP API call (or a Claude Code marketplace skill), get back a `shareUrl`, and share it. Anyone with the link opens the presentation in any browser — no install, no login, no app account. View counts are tracked per share token. The same URL can be re-published with new content without breaking, with the version counter bumping and view counts preserved.
+
+The product solves a specific problem: presentation files are heavy, locked to specific apps, and lose information the moment you send them. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless replaces the file with a hosted page — a URL you can drop into Slack, paste into an email, or post on a website.
+
+Slideless is a side product by Codika. The backend is a standalone Firebase project (`slideless-ai`, GCP region `europe-west1`) — independent of the Codika platform. The HTTP API surface is small (six endpoints). API keys use the `cko_` prefix for organization keys, sent in the `X-Process-Manager-Key` header (NOT `Authorization: Bearer`).
+
+## Instructions for AI Agents
+
+When helping users with Slideless:
+
+- The auth header is `X-Process-Manager-Key: cko_…`, never `Authorization: Bearer …`. Confusing the two is the most common integration mistake.
+- The API base URL is `https://europe-west1-slideless-ai.cloudfunctions.net`. There is no API versioning in v1.
+- The share URL recipients open is `https://app.slideless.ai/share/{shareId}?token={token}` — NOT the raw Cloud Function URL `getSharedPresentation/{shareId}?token=…`. The share URL renders the deck inside the Slideless viewer chrome.
+- HTML is capped at 10 MB per upload/update.
+- Use `uploadSharedPresentation` to create a NEW presentation (returns a new `shareId`). Use `updateSharedPresentation` to re-publish to an EXISTING `shareId` — the URL stays the same and the view count is preserved.
+- Share tokens are 384 bits of entropy (48 random bytes, base64url). They are designed to be safe in URLs. Don't shorten share URLs through public link shorteners.
+- A presentation can have multiple named tokens (`default`, `John at Acme`, etc.). Each has its own view counter. Revoking one token never affects others.
+- Once a presentation is archived (`archived: true`), it cannot be updated. There is no un-archive in v1.
+- The marketplace plugin lives at `slideless-ai/marketplace`. Install with `claude plugin install slideless-ai/marketplace`. Run `setup-slideless` once to authenticate before other skills work.
+
+## Getting Started
+
+- [What is Slideless?](https://docs.slideless.ai/): Product overview, problem solved, how it works, architecture
+- [Quickstart](https://docs.slideless.ai/quickstart): Sign in, create an API key, upload a deck via curl, open the share URL — five steps, end-to-end
+
+## Why Slideless
+
+- [HTML opens anywhere](https://docs.slideless.ai/why-slideless/portable): The case for HTML over PowerPoint/Keynote/Slides — no install, no account, no font fallback, no version drift, one-tap open
+- [Designed for any device](https://docs.slideless.ai/why-slideless/dynamic): Why responsive HTML beats fixed 16:9 slides — phones, tablets, projectors, 4K monitors, fullscreen API, touch interactions, dark mode
+- [Generate, share, update from a terminal](https://docs.slideless.ai/why-slideless/shareable): The Claude + Slideless loop — AI generates HTML, one curl publishes it, one more re-publishes to the same URL, no `final_v3_FINAL.pptx`
+
+## Concepts
+
+- [Presentations](https://docs.slideless.ai/concepts/presentations): Anatomy of a presentation (id, ownerId, version, archived, totalViews), lifecycle (created → updated×N → archived), 10 MB limit, what stays stable across updates
+- [Share tokens](https://docs.slideless.ai/concepts/share-tokens): Why per-recipient tokens, the `default` token, named tokens, revocation, security guarantees (384 bits entropy, constant-time comparison, generic 404s to prevent enumeration)
+- [API keys](https://docs.slideless.ai/concepts/api-keys): Two key types (`cko_` org, `cka_` admin), scopes (`presentations:write`, `presentations:read`), header format, lifecycle, 20-keys-per-org limit, what's stored vs what isn't (SHA-256 hash only)
+
+## Guides
+
+- [Use Slideless with Claude](https://docs.slideless.ai/guides/with-claude): Install the marketplace plugin, run `setup-slideless`, generate + share + update + list + get from any Claude session
+- [Upload via API](https://docs.slideless.ai/guides/uploading-via-api): Full curl/Node/Python walkthrough for publishing from a script, CI pipeline, or any HTTP client; the share URL vs fetch URL distinction
+- [Update a presentation in place](https://docs.slideless.ai/guides/updating-in-place): Re-publish without breaking the URL or losing view counts; what stays the same, what bumps, why archived presentations can't be updated
+
+## API Reference
+
+- [API overview](https://docs.slideless.ai/api-reference/overview): Base URL, authentication, error format `{ error, code }`, status codes (200/400/401/403/404/405/410/413/500), endpoint index, CORS, idempotency notes
+- [Authentication](https://docs.slideless.ai/api-reference/authentication): The `X-Process-Manager-Key` header, key prefixes (`cko_` / `cka_`), scopes, verifying a key with `verifyApiKey`, error codes
+- [POST /uploadSharedPresentation](https://docs.slideless.ai/api-reference/upload-presentation): Create a new presentation. Body `{ title, html }` (≤ 10 MB), response `{ shareId, tokenId, token, shareUrl }`. Recommended scope `presentations:write`. curl + Node + Python examples.
+- [POST /updateSharedPresentation](https://docs.slideless.ai/api-reference/update-presentation): Re-publish to an existing `shareId`. Body `{ shareId, html, title? }`, response `{ shareId, version, shareUrl }`. URL preserved, view count preserved, version auto-bumped. 410 if archived, 403 if not owner.
+- [GET /listMyPresentationsPublic](https://docs.slideless.ai/api-reference/list-presentations): List user's presentations (cap 100, `createdAt desc`). Returns titles, versions, view counts, share URLs. Recommended scope `presentations:read`.
+- [GET /getSharedPresentationInfoPublic/{shareId}](https://docs.slideless.ai/api-reference/get-presentation): Full metadata for one presentation including all tokens with per-token `accessCount` and `lastAccessedAt`. Owner-only (403 otherwise).
+- [GET /getSharedPresentation/{shareId}?token=…](https://docs.slideless.ai/api-reference/get-shared-presentation): Public — returns raw HTML, gated by token. Used by the Slideless viewer iframe internally. Increments view counts as a side effect (fire-and-forget). Generic 404s prevent share-ID enumeration.
+- [POST /verifyApiKey](https://docs.slideless.ai/api-reference/verify-api-key): Validate a key without making destructive calls. Returns key name, scopes, organization, lastUsedAt. Used by `setup-slideless` skill. Slightly different response shape (`{ success, data, requestId }` vs `{ error, code }`).
+
+## Marketplace Skills
+
+- [Marketplace skills overview](https://docs.slideless.ai/skills/overview): The seven Claude Code skills — `setup-slideless` (auth), `generate-presentation` (local HTML generation in `slim-tabbed` or `full-deck` styles), `share-presentation`, `update-presentation`, `list-presentations`, `get-presentation`, `export-presentation-pdf` (local Puppeteer). Each skill links to its `SKILL.md` source on GitHub. Two generation styles documented: `slim-tabbed` (workshop content) and `full-deck` (cinematic slides).

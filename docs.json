@@ -1,69 +1,87 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Slideless Documentation",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#1E1432",
+    "light": "#A78BFA",
+    "dark": "#150E24"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Satoshi",
+      "weight": 700,
+      "source": "https://cdn.fontshare.com/wf/BNPRT3ODDLFBWCXYJT3DHQD5HQ6KXIUF/TQZKMSQ7LSXFQXBNSJKXWQR3KMBNHYXW/SATOSHI-BOLD.woff2",
+      "format": "woff2"
+    },
+    "body": {
+      "family": "Geist"
+    }
+  },
+  "background": {
+    "color": {
+      "light": "#FDFCFB",
+      "dark": "#0A0F1E"
+    }
   },
   "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://app.slideless.ai"
+  },
+  "appearance": {
+    "default": "system"
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
+            "pages": ["index", "quickstart"]
+          },
+          {
+            "group": "Why Slideless",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "why-slideless/portable",
+              "why-slideless/dynamic",
+              "why-slideless/shareable"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/presentations",
+              "concepts/share-tokens",
+              "concepts/api-keys"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/with-claude",
+              "guides/uploading-via-api",
+              "guides/updating-in-place"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "API Reference",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
+              "api-reference/overview",
+              "api-reference/authentication",
+              "api-reference/upload-presentation",
+              "api-reference/update-presentation",
+              "api-reference/list-presentations",
+              "api-reference/get-presentation",
+              "api-reference/get-shared-presentation",
+              "api-reference/verify-api-key"
             ]
           },
           {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
+            "group": "Marketplace Skills",
+            "pages": ["skills/overview"]
           }
         ]
       }
@@ -71,52 +89,37 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/slideless-ai",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "App",
+          "href": "https://app.slideless.ai",
+          "icon": "rocket"
         }
       ]
     }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:team@slideless.ai"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Open the App",
+      "href": "https://app.slideless.ai"
     }
   },
   "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+    "options": ["copy", "view", "claude", "cursor", "mcp"]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/slideless-ai"
     }
   }
 }

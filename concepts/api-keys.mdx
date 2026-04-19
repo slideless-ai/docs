@@ -1,0 +1,101 @@
+---
+title: "API keys"
+description: "How API keys, scopes, and the X-Process-Manager-Key header work in Slideless"
+---
+
+## Two key types
+
+| Type | Prefix | Scope | Created via |
+|---|---|---|---|
+| **Organization key** | `cko_` | Acts on behalf of one org | Dashboard → Organization → API Keys |
+| **Admin key** | `cka_` | Cross-org platform admin | Internal tooling only — not user-creatable |
+
+Almost everything you do uses an organization key. Admin keys exist for platform-level automation and are not exposed in the dashboard.
+
+## Where the key goes
+
+Every API call sends the key in the `X-Process-Manager-Key` header:
+
+```bash
+curl -H "X-Process-Manager-Key: cko_abc123def456..." ...
+```
+
+This is **not** `Authorization: Bearer …` — that pattern doesn't apply here. The `X-Process-Manager-Key` header is the only accepted form.
+
+## Scopes
+
+When you create an organization key, you pick scopes:
+
+| Scope | What it allows |
+|---|---|
+| `presentations:write` | Upload, update, archive presentations |
+| `presentations:read` | List your presentations, get presentation metadata |
+
+A key without the relevant scope returns `403 forbidden` from the affected endpoint. Pick the narrowest scope set that fits the use case — a script that only lists decks should use `presentations:read` only.
+
+## Lifecycle
+
+```
+created (status=active)
+  ↓
+viewed once at creation (raw value shown)
+  ↓
+used N times (lastUsedAt updated on every successful call)
+  ↓
+revoked (status=revoked) OR expired (past expiresAt)
+```
+
+| Transition | How |
+|---|---|
+| Create | Dashboard → Organization → API Keys → "Create API key" |
+| View raw value | **Once**, at creation. Slideless stores only a SHA-256 hash. |
+| Use | Send in `X-Process-Manager-Key` header |
+| Revoke | Dashboard → API Keys → click "Revoke" |
+| Rotate | Create a new key, update your callers, revoke the old key |
+
+## What's stored, what isn't
+
+Slideless stores:
+
+- A **SHA-256 hash** of the key (not the raw value)
+- The **prefix** (first 8 chars) for display in the UI
+- Metadata: name, description, scopes, organizationId, userId, createdAt, lastUsedAt, expiresAt
+
+Slideless does **not** store the raw key. If you lose it, you must create a new one.
+
+## Limits
+
+| Limit | Value |
+|---|---|
+| API keys per organization | 20 |
+| Keys per user | No additional cap |
+| Key length | Fixed (auto-generated; you can't choose) |
+| Per-key rate limit | None enforced in v1 |
+
+## Verifying a key
+
+You can test a key without making a destructive call:
+
+```bash
+curl -X POST https://europe-west1-slideless-ai.cloudfunctions.net/verifyApiKey \
+  -H "X-Process-Manager-Key: cko_..."
+```
+
+Returns `200` with metadata (name, scopes, organizationId, expiresAt) on success, `401` on failure. The marketplace `setup-slideless` skill uses this endpoint to validate keys before saving them locally.
+
+See [`POST /verifyApiKey`](/api-reference/verify-api-key) for the full response shape.
+
+## Errors you might see
+
+| Status | Meaning | Fix |
+|---|---|---|
+| `401 unauthenticated` | Missing or invalid key | Check the `X-Process-Manager-Key` header value |
+| `403 forbidden` | Key valid but missing the required scope | Recreate the key with the correct scope |
+| `403 forbidden` | Key has been revoked | Create a new key |
+
+## Operational guidance
+
+- **Treat keys as secrets.** Don't commit them to git, don't paste them in chat, don't put them in client-side code.
+- **Use one key per integration.** Easier to rotate, easier to attribute usage.
+- **Set `lastUsedAt` reminders.** If a key hasn't been used in a long time, it's a candidate for revocation.
+- **Prefer scoped keys over admin-style "do anything" keys.** Even if the dashboard only offers `presentations:read` and `presentations:write` today, picking the minimum reduces blast radius later.

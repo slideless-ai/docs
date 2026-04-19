@@ -1,0 +1,133 @@
+---
+title: "POST /updateSharedPresentation"
+description: "Replace HTML at an existing share — same URL, view count preserved, version auto-bumped"
+---
+
+## When to use
+
+Re-publish a presentation. The `shareId` (and therefore every share URL) stays the same. The HTML in storage is overwritten. The `version` counter increments. View counts are preserved.
+
+To create a new presentation, use [`POST /uploadSharedPresentation`](/api-reference/upload-presentation).
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `X-Process-Manager-Key` | `cko_…` (or `cka_…`) — must belong to the presentation's owner |
+| `Content-Type` | `application/json` |
+
+Recommended scope: `presentations:write`.
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `shareId` | string | yes | The `shareId` of the existing presentation |
+| `html` | string | yes | The new HTML, ≤ 10 MB |
+| `title` | string | no | New display title; omit to keep the existing one |
+
+Example:
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "html": "<!doctype html>... new content ...",
+  "title": "Q4 review (v2)"
+}
+```
+
+## Response (200)
+
+| Field | Type | Description |
+|---|---|---|
+| `shareId` | string | Same as the request |
+| `version` | number | The new version (auto-incremented from the previous) |
+| `shareUrl` | string | An active share URL (uses the first non-revoked token) |
+
+Example:
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "version": 3,
+  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+}
+```
+
+## What stays the same
+
+- `shareId` and every share token (every existing URL still works)
+- `totalViews` and per-token `accessCount`
+- Owner, organization, `apiKeyId`
+
+## What changes
+
+- The HTML in storage (atomically overwritten)
+- `version` (auto-bumps by 1)
+- `updatedAt`
+- `title` (only if you pass a new one)
+
+## Examples
+
+### curl
+
+```bash
+SHARE_ID="0192f1c3-..."
+
+curl -sS -X POST \
+  -H "X-Process-Manager-Key: $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @<(jq -Rs --arg id "$SHARE_ID" '{shareId: $id, html: .}' < ./deck-v2.html) \
+  https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
+```
+
+### Node.js
+
+```js
+import { readFile } from 'node:fs/promises';
+
+const html = await readFile('./deck-v2.html', 'utf-8');
+
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation',
+  {
+    method: 'POST',
+    headers: {
+      'X-Process-Manager-Key': process.env.SLIDELESS_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ shareId: '0192f1c3-...', html })
+  }
+);
+
+const { version } = await res.json();
+console.log('Now at version', version);
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | `shareId` or `html` missing or wrong type | Send both as strings |
+| `401` | `unauthenticated` | Missing or invalid API key | Set a valid `X-Process-Manager-Key` |
+| `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
+| `404` | `not-found` | No presentation with that `shareId` | Verify the ID — list with `listMyPresentationsPublic` |
+| `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
+| `410` | `archived` | Presentation has been archived | Cannot be updated; create a new one with `uploadSharedPresentation` |
+| `413` | `payload-too-large` | HTML > 10 MB | Slim down the deck |
+| `500` | `internal` | Backend error | Retry with exponential backoff |
+
+## Atomicity
+
+GCS object writes are atomic from the viewer's perspective: a viewer either gets the old HTML or the new HTML, never a partial mix. There is no read-during-write window where the file is corrupt.
+
+## Next
+
+- **[Update in place guide](/guides/updating-in-place)** — Step-by-step walkthrough.
+- **[POST /uploadSharedPresentation](/api-reference/upload-presentation)** — Create a new presentation.

@@ -1,97 +1,61 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "What is Slideless?"
+description: "Host and share self-contained HTML presentations with public links, view tracking, and update-in-place"
 ---
 
-## Setting up
+## Overview
 
-Get your documentation site up and running in minutes.
+Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. You upload the HTML through an API call (or a Claude Code skill), get back a link, and share it. Anyone with the link opens the presentation in any browser — no install, no login, no app account.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+The product solves a specific problem: **presentation files are heavy, locked to specific apps, and lose information the moment you send them**. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless turns the deck into a hosted page — a URL you can drop into Slack, paste into an email, or post on a website.
 
-## Make it yours
+## How it works
 
-Design a docs site that looks great and empowers your users.
+```
+Your HTML file (10 MB max, self-contained)
+  → POST /uploadSharedPresentation (X-Process-Manager-Key)
+    → Slideless (stores HTML in GCS, generates random share token)
+      → Public share URL: https://app.slideless.ai/share/{shareId}?token={...}
+        → Recipients open in any browser
+          → View counts tracked per token
+```
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+When you upload:
 
-## Create beautiful pages
+1. The HTML is stored in private cloud storage (Google Cloud Storage, region `europe-west1`).
+2. A Firestore record is created with metadata, the owner, and an unguessable 384-bit share token.
+3. You get back a `shareUrl` you can share anywhere.
+4. Recipients open the URL — Slideless serves your HTML inside a thin viewer chrome (card border, fullscreen toggle, download menu, footer).
+5. Each view increments a per-token counter so you can see who's looking.
 
-Everything you need to create world-class documentation.
+## What you can do
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+| Capability | How |
+|---|---|
+| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation` → `share-presentation`) |
+| Upload from a script or CI pipeline | One curl call to `POST /uploadSharedPresentation` |
+| Update a published deck without breaking the link | `POST /updateSharedPresentation` — same URL, view count preserved, version auto-bumped |
+| Track who's viewing | `totalViews` per presentation, `accessCount` per share token |
+| Send different links to different recipients | Multiple named tokens per presentation, revoke any individually |
+| Manage everything from a UI | Dashboard at https://app.slideless.ai |
 
-## Need inspiration?
+## What Slideless is not
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+- **Not a slide editor.** You bring the HTML — Slideless hosts and shares it. Use Claude (or Reveal.js, or hand-written HTML, or any AI generator) to author.
+- **Not a PowerPoint converter.** Upload `.html`, not `.pptx`.
+- **Not a CMS.** It's purpose-built for one thing: making a deck shareable as a URL.
+
+## Architecture
+
+| Layer | What it does |
+|---|---|
+| **Public viewer** | https://app.slideless.ai/share/[shareId] — renders any HTML inside a sandboxed iframe with our chrome |
+| **Dashboard** | https://app.slideless.ai — sign in, browse presentations, create API keys, manage share tokens |
+| **HTTP API** | Cloud Functions in `europe-west1` — upload, update, list, get, verify-key endpoints |
+| **Marketplace skills** | Claude Code plugin at https://github.com/slideless-ai/marketplace — `generate-presentation`, `share-presentation`, `update-presentation`, etc. |
+
+## Next steps
+
+- **[Quickstart](/quickstart)** — Upload your first presentation in five minutes.
+- **[Why Slideless](/why-slideless/portable)** — The case for HTML over PowerPoint.
+- **[API Reference](/api-reference/overview)** — Every endpoint with request/response schemas.
