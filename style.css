@@ -1,0 +1,396 @@
+/* ---------------------------------------------------------------
+   Slideless docs — neo-brutalist override for Mintlify (aspen theme)
+   Tokens ported from slideless-landing/src/styles/brand.css
+   Selector policy: prefer #ids and [data-*] attributes over classes,
+   since Mintlify does not guarantee class-name stability across releases.
+   --------------------------------------------------------------- */
+
+/* ---------- TOKENS (light) ---------- */
+:root {
+  --bg:            #f7f3e6;
+  --bg-elevated:   #ffffff;
+  --bg-deep:       #ede5ce;
+  --ink:           #0a0a0a;
+  --ink-dim:       #3f3f46;
+  --ink-muted:     #71717a;
+  --border:        #d9d3bf;
+  --border-strong: #a8a288;
+
+  --accent:        #29ff8d;
+  --accent-hover:  #4df8a0;
+  --accent-soft:   rgba(41, 255, 141, 0.14); /* subtle wash — sidebar */
+  --accent-ink:    #070710;
+  --violet:        #8d54ff;
+  --azure:         #4d8bff;
+  --amber:         #fbbf24;
+
+  --shadow-hard:    4px 4px 0 #000;
+  --shadow-hard-sm: 3px 3px 0 #000;
+  --border-card:    1.5px solid var(--border-strong);
+  --border-cta:     2px solid #000;
+  --radius-card:    6px;
+  --radius-cta:     0;
+
+  --ease:  cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 0.12s;
+  --t-base: 0.25s;
+}
+
+/* ---------- TOKENS (dark) ---------- */
+html.dark {
+  --bg:            #070710;
+  --bg-elevated:   #10101a;
+  --bg-deep:       #030308;
+  --ink:           #fafafa;
+  --ink-dim:       #a1a1aa;
+  --ink-muted:     #52525b;
+  --border:        #1c1c28;
+  --border-strong: #2e2e3e;
+  --accent-soft:   rgba(41, 255, 141, 0.12);
+}
+
+/* ---------- PAGE DECORATION: grid + subtle beige crest ----------
+   Mintlify's `background.decoration: "grid"` injects a small decorative SVG
+   pinned to the top of the page AND a pair of <span> overlays with a
+   rgba(41,255,141) radial gradient (the "primary color halo"). We neutralize
+   the halo and its built-in top decoration, then replace with:
+
+     1. A fixed radial gradient: slightly darker beige at the top fading
+        into the base cream — almost imperceptible, just enough to create
+        a sense of depth/movement near the top of the viewport.
+
+     2. A fixed CSS grid pattern that tiles the whole viewport — thin
+        ink lines at ~7% opacity, 48px cells. Shows through every page
+        since it's fixed to the viewport, not the scrollable content. */
+
+/* Kill the green halo (both light + dark variants share "rgba(41, 255, 141") */
+span[style*="rgba(41, 255, 141"] {
+  display: none !important;
+}
+
+/* Kill Mintlify's built-in top-only grid SVG — we replace it with a
+   fullscreen CSS grid below, so the partial one is now redundant. */
+svg[width="918"][viewBox*="591"] {
+  display: none !important;
+}
+
+/* Put the whole decoration on a fixed ::before so it shows on every page */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -5;                  /* above the base bg filler (-z-10), below content */
+  pointer-events: none;
+  background:
+    linear-gradient(to right,  rgba(10, 10, 10, 0.04) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(to bottom, rgba(10, 10, 10, 0.04) 1px, transparent 1px) 0 0 / 48px 48px,
+    radial-gradient(
+      ellipse 90% 55% at 50% -5%,
+      #ede5ce 0%,               /* slightly darker beige at the top */
+      #f7f3e6 65%               /* matches base cream */
+    );
+}
+
+html.dark body::before {
+  background:
+    linear-gradient(to right,  rgba(250, 250, 250, 0.03) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(to bottom, rgba(250, 250, 250, 0.03) 1px, transparent 1px) 0 0 / 48px 48px,
+    radial-gradient(
+      ellipse 90% 55% at 50% -5%,
+      #10101a 0%,
+      #070710 65%
+    );
+}
+
+/* ---------- GLOBAL: rectangular chrome ---------- */
+.button,
+.method-pill,
+[data-badge],
+.tab,
+.tabs,
+.step,
+.steps,
+[data-component-name="primary-header-button"] {
+  border-radius: var(--radius-cta) !important;
+}
+
+/* ---------- NAVBAR ---------- */
+#navbar {
+  background: var(--bg) !important;
+  border-bottom: var(--border-cta);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---------- SIDEBAR CONTAINER: solid cream backdrop (covers the grid) ----------
+   The page-wide grid lives on body::before and would otherwise show through
+   the sidebar. Giving the sidebar container a solid background clips the
+   grid to just the content column on the right — much calmer reading. */
+#sidebar-content {
+  background: var(--bg) !important;
+  border-right: 2px solid var(--ink) !important;
+}
+
+/* ---------- SIDEBAR: lean left-bar + subtle wash ---------- */
+/* Lean sidebar treatment: no border, no shadow, no size jump on hover.
+   A 3px lime "inset" left bar + soft green background wash signals state.
+   Bold ink text when hovered or active. Hover and selected share the look. */
+
+#sidebar-content li > a {
+  border-radius: 0 !important;
+  /* Reserve the 3px slot for the inset accent bar so text position
+     is the same in default / hover / active — no layout jump. */
+  box-shadow: inset 3px 0 0 transparent;
+  transition: background var(--t-fast) ease, color var(--t-fast) ease,
+              box-shadow var(--t-fast) ease;
+}
+
+#sidebar-content li > a:not(.nav-anchor):hover,
+#sidebar-content li[data-active] > a:not(.nav-anchor) {
+  background: var(--accent-soft) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 3px 0 0 var(--accent) !important;
+  font-weight: 700 !important;
+}
+
+/* Make sure the selected item's <li> itself doesn't carry any framing */
+#sidebar-content li[data-active] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+#sidebar-content li > a:hover span,
+#sidebar-content li > a:hover svg,
+#sidebar-content li[data-active] a,
+#sidebar-content li[data-active] span,
+#sidebar-content li[data-active] svg {
+  color: var(--ink) !important;
+  fill: var(--ink) !important;
+  font-weight: 700 !important;
+}
+
+/* Group headers: mono label treatment */
+.sidebar-group-header {
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800 !important;
+}
+
+/* ---------- CARDS ---------- */
+.card,
+.card-group .card {
+  background: var(--bg-elevated);
+  border: var(--border-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hard);
+  transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+
+.card:hover {
+  border-color: var(--accent);
+}
+
+/* ---------- CODE BLOCKS ---------- */
+.code-block,
+pre[class*="language-"] {
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hard);
+}
+
+/* ---------- THEME TOGGLE: share the vibe ----------
+   The light/dark toggle is a <button aria-label="Toggle dark mode">.
+   Same square shell as the other nav buttons: 2px ink border, hard shadow,
+   soft-lime hover, translate-press active. */
+button[aria-label="Toggle dark mode"] {
+  /* Match Support / Open-the-App total height (~38px) */
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 2px solid var(--ink) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-hard-sm) !important;
+  transition: background var(--t-fast) ease, transform var(--t-fast) ease,
+              box-shadow var(--t-fast) ease;
+}
+
+button[aria-label="Toggle dark mode"]:hover {
+  background: var(--accent-soft) !important;
+}
+
+button[aria-label="Toggle dark mode"]:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 #000 !important;
+}
+
+button[aria-label="Toggle dark mode"] svg {
+  color: var(--ink) !important;
+  stroke: var(--ink) !important;
+}
+
+/* ---------- NAVBAR + NAV-ANCHOR BUTTONS: one shared rule ----------
+   Support, Open the App, GitHub, App — same shell, same hover, same press.
+   Mintlify renders Open the App as an outer <a> wrapping an inner
+   <span.bg-primary-dark> "pill". We neutralize that pill so the outer
+   anchor becomes the rendered button — identical to Support. */
+
+#navbar a:has(> span.bg-primary-dark) > span.bg-primary-dark {
+  display: none !important;
+}
+
+#navbar a[class*="bg-gray-950"],
+#navbar a:has(> span.bg-primary-dark),
+.nav-anchor {
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: var(--border-cta) !important;
+  box-shadow: var(--shadow-hard-sm) !important;
+  border-radius: 0 !important;
+  padding: 8px 14px !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none !important;
+  transition: background var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+
+#navbar a[class*="bg-gray-950"]:hover,
+#navbar a:has(> span.bg-primary-dark):hover,
+.nav-anchor:hover {
+  background: var(--accent-soft) !important;
+  color: var(--ink) !important;
+}
+
+#navbar a[class*="bg-gray-950"]:active,
+#navbar a:has(> span.bg-primary-dark):active,
+.nav-anchor:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 #000 !important;
+}
+
+/* Open-the-App label: make it inherit exactly what Support inherits.
+   Drop the chevron entirely so the two buttons render identically. */
+#navbar a:has(> span.bg-primary-dark) .text-white,
+#navbar a:has(> span.bg-primary-dark) span[class*="text-white"] {
+  color: var(--ink) !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+}
+
+#navbar a:has(> span.bg-primary-dark) svg {
+  display: none !important;
+}
+
+/* ---------- NAV ANCHORS (GitHub / App) ----------
+   Mintlify paints these icons via CSS mask-image on an SVG whose
+   background-color IS the icon fill. We can't easily wrap only the icon
+   in its own frame, so the compromise: the whole anchor is a compact
+   fixed-width 3D button with icon + small-caps text. Icon is visually
+   dominant (22px), text is a tight 11px mono label. Same width both
+   anchors via min-width so GitHub and App line up exactly. */
+/* nav-anchor: only the layout specifics (flex, min-width, sidebar indent,
+   icon sizing). The shell + hover + press are inherited from the shared
+   rule above. */
+.nav-anchor {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 132px;
+  margin: 0 16px 10px 16px !important;
+}
+
+/* Icon fills via mask-image → background-color IS the icon color */
+.nav-anchor > svg,
+.nav-anchor svg:first-of-type {
+  width: 22px !important;
+  height: 22px !important;
+  background-color: var(--ink) !important;
+  flex-shrink: 0;
+}
+
+/* ---------- ACCORDIONS / STEPS / TABS ---------- */
+.accordion,
+.step,
+.tabs,
+.nav-tabs {
+  border: var(--border-card);
+  box-shadow: var(--shadow-hard);
+  background: var(--bg-elevated);
+}
+
+.nav-tabs-item[data-active] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-bottom: 2px solid var(--accent-ink);
+}
+
+/* ---------- METHOD PILLS (HTTP verbs) ---------- */
+.method-pill {
+  border: 2px solid var(--ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- BADGES ---------- */
+[data-badge] {
+  border: 1.5px solid var(--ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+}
+
+/* ---------- FEEDBACK THUMBS ---------- */
+#feedback-thumbs-up,
+#feedback-thumbs-down {
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  transition: background var(--t-fast) ease;
+}
+
+#feedback-thumbs-up:hover,
+#feedback-thumbs-down:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---------- FOOTER ---------- */
+#footer {
+  border-top: var(--border-cta);
+  background: var(--bg);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---------- SEARCH SHELL ---------- */
+#search-input,
+#search-bar-entry {
+  border: 1.5px solid var(--ink) !important;
+  border-radius: 0 !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---------- REDUCED MOTION ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .button:active,
+  [data-component-name="primary-header-button"]:active {
+    transform: none !important;
+  }
+}

@@ -3,6 +3,15 @@ title: "What is Slideless?"
 description: "Host and share self-contained HTML presentations with public links, view tracking, and update-in-place"
 ---
 
+import { BrutalButton } from "/snippets/brutal-button.jsx";
+import { OffsetCard } from "/snippets/offset-card.jsx";
+import { AccentChip } from "/snippets/accent-chip.jsx";
+
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", margin: "8px 0 28px" }}>
+  <BrutalButton href="/quickstart" label="Quickstart" variant="primary" />
+  <BrutalButton href="/cli/overview" label="CLI overview" variant="secondary" />
+</div>
+
 ## Overview
 
 Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. You upload the HTML with one CLI command, get back a link, and share it. Anyone with the link opens the presentation in any browser. No install, no login, no app account.
@@ -67,9 +76,27 @@ Same URL, new content, view counts preserved.
 | **HTTP API** | Cloud Functions in `europe-west1` (the CLI wraps these; see [Advanced: HTTP API](/api-reference/overview) if you need to call them directly) |
 | **Plugin skills** | Open Plugin v1 repo at https://github.com/slideless-ai/plugin, installable via `npx plugins add slideless-ai/plugin`. Skills delegate to the CLI |
 
-## Next steps
+## <AccentChip label="Next steps" />
 
-- **[Quickstart](/quickstart)** — Upload your first presentation in five minutes.
-- **[CLI overview](/cli/overview)** — Why the CLI is the recommended way in.
-- **[Why Slideless](/why-slideless/portable)** — The case for HTML over PowerPoint.
-- **[Advanced: HTTP API](/api-reference/overview)** — Raw endpoint reference for when you can't use the CLI.
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px", margin: "20px 0" }}>
+  <OffsetCard
+    href="/quickstart"
+    title="Quickstart"
+    body="Upload your first presentation in five minutes."
+  />
+  <OffsetCard
+    href="/cli/overview"
+    title="CLI overview"
+    body="Why the CLI is the recommended way in."
+  />
+  <OffsetCard
+    href="/why-slideless/portable"
+    title="Why Slideless"
+    body="The case for HTML over PowerPoint."
+  />
+  <OffsetCard
+    href="/api-reference/overview"
+    title="HTTP API"
+    body="Raw endpoint reference for when you can't use the CLI."
+  />
+</div>
