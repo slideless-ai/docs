@@ -251,6 +251,15 @@ button[aria-label="Toggle dark mode"] svg {
   stroke: var(--ink) !important;
 }
 
+/* Mintlify ships the sun/moon paths at stroke-width="1.5" on the SVG attr.
+   That reads too thin next to the 2px ink button border. Override to 2px
+   so the icon carries the same visual weight as the rest of the chrome. */
+button[aria-label="Toggle dark mode"] svg path,
+button[aria-label="Toggle dark mode"] svg line,
+button[aria-label="Toggle dark mode"] svg circle {
+  stroke-width: 2px !important;
+}
+
 /* ---------- NAVBAR + NAV-ANCHOR BUTTONS: one shared rule ----------
    Support, Open the App, GitHub, App — same shell, same hover, same press.
    Mintlify renders Open the App as an outer <a> wrapping an inner
@@ -296,13 +305,19 @@ button[aria-label="Toggle dark mode"] svg {
   box-shadow: 0 0 0 #000 !important;
 }
 
-/* Open-the-App label: make it inherit exactly what Support inherits.
+/* Open-the-App label: force it to match Support's typography exactly.
+   `inherit` is not enough — Mintlify paints the inner <span class="z-10
+   text-white"> with its body-weight utility (computes to 400), and
+   `font-weight: inherit` resolves to that same value rather than the outer
+   anchor's 800. Set the weight / size / tracking explicitly.
    Drop the chevron entirely so the two buttons render identically. */
 #navbar a:has(> span.bg-primary-dark) .text-white,
 #navbar a:has(> span.bg-primary-dark) span[class*="text-white"] {
   color: var(--ink) !important;
-  font-size: inherit !important;
-  font-weight: inherit !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
 }
 
 #navbar a:has(> span.bg-primary-dark) svg {
@@ -334,6 +349,19 @@ button[aria-label="Toggle dark mode"] svg {
   height: 22px !important;
   background-color: var(--ink) !important;
   flex-shrink: 0;
+}
+
+/* GitHub / App label spans: Mintlify wraps the label in a plain <span>
+   that inherits its weight from a body-weight utility (computes to 400),
+   so the label ends up lighter than the primary-header buttons even though
+   the outer anchor is 800. Pin the inner span to the same typography as
+   Support / Open the App. */
+.nav-anchor > span {
+  color: var(--ink) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
 }
 
 /* ---------- ACCORDIONS / STEPS / TABS ---------- */
@@ -385,10 +413,13 @@ button[aria-label="Toggle dark mode"] svg {
   color: var(--accent-ink);
 }
 
-/* ---------- FOOTER ---------- */
+/* ---------- FOOTER ----------
+   Let the page grid show through — no solid fill. `#footer` here is the
+   per-article footer that holds the "Powered by Mintlify" badge; a cream
+   rectangle over the grid just reads like a stray block. */
 #footer {
   border-top: var(--border-cta);
-  background: var(--bg);
+  background: transparent;
   font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
@@ -446,9 +477,11 @@ button[aria-label="Toggle dark mode"] svg {
 
 /* ---------- COPY PAGE BUTTON GROUP (#page-context-menu) ----------
    Two buttons fused together: Copy page (rounded-l-xl) + More-actions
-   chevron (rounded-r-xl). We square both, share a single 2px ink border
-   by dropping the right border on the left button, and hang the hard
-   shadow on the right button only so the pair reads as one unit. */
+   chevron (rounded-r-xl). We square both and share a single 2px ink
+   border by dropping the right border on the left button. Both buttons
+   carry the same hard shadow: on the left button it's hidden behind the
+   right button's body, so the pair still reads as one cohesive unit with
+   a single shadow along the bottom-right. */
 #page-context-menu > button {
   background: var(--bg-elevated) !important;
   color: var(--ink) !important;
@@ -469,7 +502,6 @@ button[aria-label="Toggle dark mode"] svg {
 
 #page-context-menu > button:first-child {
   border-right: 0 !important;
-  box-shadow: none !important;
 }
 
 #page-context-menu > button:hover {
@@ -481,13 +513,51 @@ button[aria-label="Toggle dark mode"] svg {
   box-shadow: 0 0 0 #000 !important;
 }
 
-#page-context-menu > button:first-child:active {
-  box-shadow: none !important;
-}
-
 #page-context-menu > button span,
 #page-context-menu > button svg {
   color: var(--ink) !important;
+}
+
+/* ---------- DROPDOWN MENU (More-actions popover) ----------
+   Radix-UI dropdown Mintlify opens for "View as Markdown / Open in Claude /
+   Connect to Cursor / Copy MCP Server". Default treatment is a rounded
+   cream panel with a soft gray shadow and half-opacity gray text — totally
+   off-brand. Flatten to: solid cream panel, 2px ink border, hard shadow,
+   square corners, ink-colored items with accent-soft hover. The per-item
+   icon container (a rounded-lg gray-bordered wrapper) gets squared and
+   given an ink border so every badge matches the rest of the chrome. */
+[data-radix-menu-content] {
+  background: var(--bg-elevated) !important;
+  border: var(--border-cta) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-hard) !important;
+  padding: 6px !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+}
+
+[data-radix-menu-content] [role="menuitem"] {
+  color: var(--ink) !important;
+  border-radius: 0 !important;
+  transition: background var(--t-fast) ease !important;
+}
+
+/* Force full-ink text on labels + subtitles (Mintlify paints them at
+   text-gray-950/50, which reads washed out against our cream panel). */
+[data-radix-menu-content] [role="menuitem"] * {
+  color: var(--ink) !important;
+}
+
+[data-radix-menu-content] [role="menuitem"]:hover,
+[data-radix-menu-content] [role="menuitem"][data-highlighted],
+[data-radix-menu-content] [role="menuitem"]:focus,
+[data-radix-menu-content] [role="menuitem"]:focus-visible {
+  background: var(--accent-soft) !important;
+}
+
+/* Icon wrapper (rounded-lg bordered div around each logo) → square ink frame */
+[data-radix-menu-content] [role="menuitem"] > div:first-child {
+  border: 1.5px solid var(--ink) !important;
+  border-radius: 0 !important;
 }
 
 /* ---------- ASK A QUESTION (bottom sticky chat input) ----------
