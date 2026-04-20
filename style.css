@@ -123,10 +123,14 @@ html.dark body::before {
 /* ---------- SIDEBAR CONTAINER: solid cream backdrop (covers the grid) ----------
    The page-wide grid lives on body::before and would otherwise show through
    the sidebar. Giving the sidebar container a solid background clips the
-   grid to just the content column on the right — much calmer reading. */
+   grid to just the content column on the right — much calmer reading.
+   Right-edge border is aurora-green to mirror the app's sidebar chrome
+   (src/lib/components/ui/sidebar/sidebar.svelte:80 — `border-aurora-green`).
+   Bg stays at #fbf8ea because Mintlify's navbar paints that same tone and we
+   can't override the navbar overlay — keeping them matched avoids a seam. */
 #sidebar-content {
   background: var(--bg) !important;
-  border-right: 2px solid var(--ink) !important;
+  border-right: 2px solid var(--accent) !important;
 }
 
 /* Extend the sidebar cream to the far left edge so the page grid
@@ -150,25 +154,56 @@ html.dark body::before {
   z-index: -1;
 }
 
-/* ---------- SIDEBAR: lean left-bar + subtle wash ---------- */
-/* Lean sidebar treatment: no border, no shadow, no size jump on hover.
-   A 3px lime "inset" left bar + soft green background wash signals state.
-   Bold ink text when hovered or active. Hover and selected share the look. */
+/* ---------- SIDEBAR: chunky left-bar + cream wash ----------
+   Mirrors the app's sidebar-menu-button spec exactly
+   (src/lib/components/ui/sidebar/sidebar-menu-button.svelte):
+   - 6px lime left bar, reserved in the box model at every state (no jump)
+   - mono 12px uppercase label with 0.04em tracking
+   - default: 75%-opacity ink, transparent bar, transparent bg
+   - hover:   full-opacity ink (not bold), 50%-opacity aurora-green bar, accent-soft wash
+   - active:  full-opacity ink + bold, full aurora-green bar, accent-soft wash
+   The app uses `sidebar-accent` (cream) for the hover/active wash because its
+   sidebar container sits on deep cream (#f3ecd7); in docs the container is
+   already cream, so accent-soft gives the same perceived step-up in contrast. */
 
-#sidebar-content li > a {
+#sidebar-content li > a:not(.nav-anchor) {
   border-radius: 0 !important;
-  /* Reserve the 3px slot for the inset accent bar so text position
-     is the same in default / hover / active — no layout jump. */
-  box-shadow: inset 3px 0 0 transparent;
+  /* Reserve the 6px slot for the inset accent bar so text position is
+     identical in default / hover / active states. */
+  box-shadow: inset 6px 0 0 transparent;
+  color: color-mix(in srgb, var(--ink) 75%, transparent) !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   transition: background var(--t-fast) ease, color var(--t-fast) ease,
               box-shadow var(--t-fast) ease;
 }
 
-#sidebar-content li > a:not(.nav-anchor):hover,
+/* Mintlify wraps the label in an inner <span> that carries its own body-font
+   utility — pin it to the anchor's typography so the override actually
+   renders (font-family, text-transform, letter-spacing don't auto-inherit
+   through explicit child class rules). */
+#sidebar-content li > a:not(.nav-anchor) span {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  text-transform: inherit !important;
+  letter-spacing: inherit !important;
+  color: inherit !important;
+}
+
+#sidebar-content li > a:not(.nav-anchor):hover {
+  background: var(--accent-soft) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 6px 0 0 color-mix(in srgb, var(--accent) 50%, transparent) !important;
+}
+
 #sidebar-content li[data-active] > a:not(.nav-anchor) {
   background: var(--accent-soft) !important;
   color: var(--ink) !important;
-  box-shadow: inset 3px 0 0 var(--accent) !important;
+  box-shadow: inset 6px 0 0 var(--accent) !important;
   font-weight: 700 !important;
 }
 
@@ -180,22 +215,31 @@ html.dark body::before {
   border-radius: 0 !important;
 }
 
-#sidebar-content li > a:hover span,
-#sidebar-content li > a:hover svg,
-#sidebar-content li[data-active] a,
-#sidebar-content li[data-active] span,
-#sidebar-content li[data-active] svg {
+/* Icon + label color follows the anchor's state rule above — don't force
+   bold on hover (only active is bold), and inherit color so the 75% dim on
+   the default anchor applies to the icon too. */
+#sidebar-content li > a:not(.nav-anchor) svg {
+  color: currentColor !important;
+  fill: currentColor !important;
+}
+
+#sidebar-content li[data-active] a:not(.nav-anchor),
+#sidebar-content li[data-active] a:not(.nav-anchor) span,
+#sidebar-content li[data-active] a:not(.nav-anchor) svg {
   color: var(--ink) !important;
   fill: var(--ink) !important;
   font-weight: 700 !important;
 }
 
-/* Group headers: mono label treatment */
+/* Group headers: mono label treatment (matches the app's sidebar-group-label
+   — mono, uppercase, tight tracking, dimmed ink) */
 .sidebar-group-header {
   font-family: "JetBrains Mono", ui-monospace, monospace !important;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
+  font-size: 10px !important;
   font-weight: 800 !important;
+  color: color-mix(in srgb, var(--ink) 50%, transparent) !important;
 }
 
 /* ---------- CARDS ---------- */
