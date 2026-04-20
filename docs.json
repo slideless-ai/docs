@@ -20,7 +20,7 @@
   "background": {
     "decoration": "grid",
     "color": {
-      "light": "#f7f3e6",
+      "light": "#fbf8ea",
       "dark": "#070710"
     }
   },
@@ -83,7 +83,8 @@
         "pages": [
           "guides/with-claude",
           "guides/uploading-via-api",
-          "guides/updating-in-place"
+          "guides/updating-in-place",
+          "guides/sharing-via-email"
         ]
       },
       {
@@ -98,6 +99,7 @@
           "api-reference/cli-auth",
           "api-reference/upload-presentation",
           "api-reference/update-presentation",
+          "api-reference/share-via-email",
           "api-reference/list-presentations",
           "api-reference/get-presentation",
           "api-reference/get-shared-presentation",

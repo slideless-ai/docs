@@ -5,24 +5,32 @@
    since Mintlify does not guarantee class-name stability across releases.
    --------------------------------------------------------------- */
 
-/* ---------- TOKENS (light) ---------- */
+/* ---------- TOKENS (light) ----------
+   Mirrors slideless-app/src/app.css, with one docs-specific deviation:
+   Mintlify's navbar paints an inner <div class="absolute inset-0
+   bg-background-light"> overlay that's driven by docs.json
+   `background.color.light` (#fbf8ea) — we can't override it from CSS
+   without fighting Tailwind. So we align the sidebar to the navbar's
+   actual rendered tone (--bg = #fbf8ea) and push --bg-content one step
+   lighter to #fefcf3 so the reading surface sits visibly above chrome. */
 :root {
-  --bg:            #f7f3e6;
-  --bg-elevated:   #ffffff;
-  --bg-deep:       #ede5ce;
+  --bg:            #fbf8ea;   /* chrome: sidebar + navbar + footer (matches docs.json bg) */
+  --bg-content:    #fefcf3;   /* content surface — a step lighter than chrome */
+  --bg-elevated:   #ffffff;   /* cards / popovers — pure white so they read above content */
+  --bg-deep:       #f3ecd7;   /* app's brand-bg-deep, kept as a token for code blocks etc */
   --ink:           #0a0a0a;
   --ink-dim:       #3f3f46;
   --ink-muted:     #71717a;
   --border:        #d9d3bf;
   --border-strong: #a8a288;
 
-  --accent:        #29ff8d;
-  --accent-hover:  #4df8a0;
-  --accent-soft:   rgba(41, 255, 141, 0.14); /* subtle wash — sidebar */
-  --accent-ink:    #070710;
-  --violet:        #8d54ff;
-  --azure:         #4d8bff;
-  --amber:         #fbbf24;
+  --accent:        #29ff8d;   /* aurora-green */
+  --accent-hover:  #4df8a0;   /* aurora-green-soft */
+  --accent-soft:   rgba(41, 255, 141, 0.14);
+  --accent-ink:    #070710;   /* aurora-ink */
+  --violet:        #8d54ff;   /* aurora-violet */
+  --azure:         #4d8bff;   /* aurora-azure */
+  --amber:         #fbbf24;   /* aurora-amber */
 
   --shadow-hard:    4px 4px 0 #000;
   --shadow-hard-sm: 3px 3px 0 #000;
@@ -38,8 +46,13 @@
 
 /* ---------- TOKENS (dark) ---------- */
 html.dark {
-  --bg:            #070710;
-  --bg-elevated:   #10101a;
+  /* Mirrors slideless-app/src/app.css .dark tokens. In dark mode the app
+     flips the relationship: chrome (brand-bg-deep) is the darkest surface
+     and content (brand-bg) is a touch lighter — keeping the sidebar/navbar
+     as the most recessed surface. */
+  --bg:            #030308;   /* chrome (brand-bg-deep) */
+  --bg-content:    #070710;   /* content (brand-bg) */
+  --bg-elevated:   #10101a;   /* cards (brand-bg-elevated) */
   --bg-deep:       #030308;
   --ink:           #fafafa;
   --ink-dim:       #a1a1aa;
@@ -49,19 +62,13 @@ html.dark {
   --accent-soft:   rgba(41, 255, 141, 0.12);
 }
 
-/* ---------- PAGE DECORATION: grid + subtle beige crest ----------
+/* ---------- PAGE DECORATION: flat cream + grid ----------
    Mintlify's `background.decoration: "grid"` injects a small decorative SVG
    pinned to the top of the page AND a pair of <span> overlays with a
    rgba(41,255,141) radial gradient (the "primary color halo"). We neutralize
-   the halo and its built-in top decoration, then replace with:
-
-     1. A fixed radial gradient: slightly darker beige at the top fading
-        into the base cream — almost imperceptible, just enough to create
-        a sense of depth/movement near the top of the viewport.
-
-     2. A fixed CSS grid pattern that tiles the whole viewport — thin
-        ink lines at ~7% opacity, 48px cells. Shows through every page
-        since it's fixed to the viewport, not the scrollable content. */
+   both, then paint a flat cream surface plus a fullscreen CSS grid via a
+   fixed ::before so the grid tiles every page uniformly. No gradient — the
+   content surface reads as one calm cream block. */
 
 /* Kill the green halo (both light + dark variants share "rgba(41, 255, 141") */
 span[style*="rgba(41, 255, 141"] {
@@ -74,7 +81,7 @@ svg[width="918"][viewBox*="591"] {
   display: none !important;
 }
 
-/* Put the whole decoration on a fixed ::before so it shows on every page */
+/* Flat fill + grid overlay, fixed to the viewport so every page matches */
 body::before {
   content: "";
   position: fixed;
@@ -84,22 +91,14 @@ body::before {
   background:
     linear-gradient(to right,  rgba(10, 10, 10, 0.04) 1px, transparent 1px) 0 0 / 48px 48px,
     linear-gradient(to bottom, rgba(10, 10, 10, 0.04) 1px, transparent 1px) 0 0 / 48px 48px,
-    radial-gradient(
-      ellipse 90% 55% at 50% -5%,
-      #ede5ce 0%,               /* slightly darker beige at the top */
-      #f7f3e6 65%               /* matches base cream */
-    );
+    var(--bg-content);
 }
 
 html.dark body::before {
   background:
     linear-gradient(to right,  rgba(250, 250, 250, 0.03) 1px, transparent 1px) 0 0 / 48px 48px,
     linear-gradient(to bottom, rgba(250, 250, 250, 0.03) 1px, transparent 1px) 0 0 / 48px 48px,
-    radial-gradient(
-      ellipse 90% 55% at 50% -5%,
-      #10101a 0%,
-      #070710 65%
-    );
+    var(--bg-content);
 }
 
 /* ---------- GLOBAL: rectangular chrome ---------- */
@@ -128,6 +127,27 @@ html.dark body::before {
 #sidebar-content {
   background: var(--bg) !important;
   border-right: 2px solid var(--ink) !important;
+}
+
+/* Extend the sidebar cream to the far left edge so the page grid
+   doesn't peek through the ~40px gutter between the viewport and
+   the sidebar's first pixel. The sidebar itself is position:sticky,
+   so it establishes a containing block for an absolutely-positioned
+   ::before pseudo — we anchor that pseudo to the sidebar's left edge
+   (right: 100%) and bleed 100vw leftward. The nearest ancestor has
+   `overflow-x: clip`, which naturally trims the bleed at the viewport
+   edge. z-index: -1 tucks it behind the sidebar's own content but
+   above body::before (z-index: -5), so the grid is hidden. */
+#sidebar-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 100vw;
+  background: var(--bg);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* ---------- SIDEBAR: lean left-bar + subtle wash ---------- */
@@ -378,6 +398,128 @@ button[aria-label="Toggle dark mode"] svg {
   border: 1.5px solid var(--ink) !important;
   border-radius: 0 !important;
   font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---------- ASK AI BUTTON (navbar) ----------
+   Mintlify ships #assistant-entry as a rounded-full pill with a subtle bg
+   wash. Match the Support / Open-the-App treatment: 2px ink border, hard
+   shadow, uppercase mono label, accent-soft hover, translate-press active. */
+#assistant-entry,
+#assistant-entry-mobile {
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: var(--border-cta) !important;
+  box-shadow: var(--shadow-hard-sm) !important;
+  border-radius: 0 !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+
+#assistant-entry:hover,
+#assistant-entry-mobile:hover {
+  background: var(--accent-soft) !important;
+}
+
+#assistant-entry:active,
+#assistant-entry-mobile:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 #000 !important;
+}
+
+#assistant-entry svg,
+#assistant-entry-mobile svg {
+  color: var(--ink) !important;
+  stroke: var(--ink) !important;
+}
+
+#assistant-entry span {
+  color: var(--ink) !important;
+}
+
+/* ---------- COPY PAGE BUTTON GROUP (#page-context-menu) ----------
+   Two buttons fused together: Copy page (rounded-l-xl) + More-actions
+   chevron (rounded-r-xl). We square both, share a single 2px ink border
+   by dropping the right border on the left button, and hang the hard
+   shadow on the right button only so the pair reads as one unit. */
+#page-context-menu > button {
+  background: var(--bg-elevated) !important;
+  color: var(--ink) !important;
+  border: var(--border-cta) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--shadow-hard-sm) !important;
+  padding: 0 12px !important;
+  height: 38px !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: background var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+
+#page-context-menu > button:first-child {
+  border-right: 0 !important;
+  box-shadow: none !important;
+}
+
+#page-context-menu > button:hover {
+  background: var(--accent-soft) !important;
+}
+
+#page-context-menu > button:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 #000 !important;
+}
+
+#page-context-menu > button:first-child:active {
+  box-shadow: none !important;
+}
+
+#page-context-menu > button span,
+#page-context-menu > button svg {
+  color: var(--ink) !important;
+}
+
+/* ---------- ASK A QUESTION (bottom sticky chat input) ----------
+   The outer wrapper is a rounded-2xl div with backdrop-blur; the send
+   icon inside is rounded-full. Flatten both: hard square shells, solid
+   cream (no blur), 2px ink border, mono placeholder. */
+div:has(> div > #chat-assistant-textarea) {
+  border-radius: 0 !important;
+  border: 2px solid var(--ink) !important;
+  box-shadow: var(--shadow-hard) !important;
+  background: var(--bg-elevated) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#chat-assistant-textarea {
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+}
+
+.chat-assistant-send-button {
+  border-radius: 0 !important;
+  border: 1.5px solid var(--ink) !important;
+  background: var(--accent) !important;
+}
+
+.chat-assistant-send-button:not(:disabled):hover {
+  background: var(--accent-hover) !important;
+}
+
+.chat-assistant-send-button svg {
+  color: var(--accent-ink) !important;
+  stroke: var(--accent-ink) !important;
 }
 
 /* ---------- REDUCED MOTION ---------- */
