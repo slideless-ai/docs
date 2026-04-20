@@ -37,8 +37,8 @@ Two commands and you're done. No dashboard visit, no key to paste. Works equally
 
 ```bash
 slideless auth signup-request --email you@example.com
-# check your inbox for the 6-digit code, then:
-slideless auth signup-complete --email you@example.com --code 123456
+# check your inbox for the 6-digit code, then (--first-name is required):
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 ```
 
 **Returning user on a new machine:**
@@ -53,9 +53,10 @@ Output (same shape for both flows):
 ```text
 ✓ Signup complete    # or "Login complete"
 
-  Organization:  My Organization
+  Name:          Alex
+  Organization:  Alex's workspace
   Org ID:        4XYwOrZ8...
-  Profile:       my-organization (now active)
+  Profile:       alexs-workspace (now active)
   API key:       cko_xxxx...  (scopes: presentations:write, presentations:read)
 ```
 

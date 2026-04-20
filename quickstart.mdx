@@ -34,10 +34,10 @@ This emails a 6-digit code to `you@example.com` and exits. The email arrives in 
 
 ## Step 3 — Complete signup
 
-Check your inbox for the code, then:
+Check your inbox for the code, then (`--first-name` is required):
 
 ```bash
-slideless auth signup-complete --email you@example.com --code 123456
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 ```
 
 Output:
@@ -45,15 +45,16 @@ Output:
 ```text
 ✓ Signup complete
 
-  Organization:  My Organization
+  Name:          Alex
+  Organization:  Alex's workspace
   Org ID:        4XYwOrZ8...
-  Profile:       my-organization (now active)
+  Profile:       alexs-workspace (now active)
   API key:       cko_xxxx...  (scopes: presentations:write, presentations:read)
 
   Try it:  slideless whoami
 ```
 
-Your `cko_` key is now stored in `~/.config/slideless/config.json` (mode `0600`) and set as the active profile. You can pass extra flags like `--company "Acme"`, `--brand-primary "#0a0a0a"`, or `--logo ./logo.png` to fill in organization details at the same time — see [`cli/auth`](/cli/auth) for the full list.
+Your `cko_` key is now stored in `~/.config/slideless/config.json` (mode `0600`) and set as the active profile. You can pass extra flags like `--last-name "Morgan"`, `--company "Acme"`, `--brand-primary "#0a0a0a"`, or `--logo ./logo.png` to fill in user/organization details at the same time — see [`cli/auth`](/cli/auth) for the full list.
 
 ## Step 4 — Share your first presentation
 

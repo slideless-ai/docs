@@ -29,15 +29,16 @@ slideless auth signup-request --email you@example.com --json
 
 ### `slideless auth signup-complete`
 
-Verify the code; create user, organization, and a `cko_` key; save it as the active profile.
+Verify the code; create user, organization, and a `cko_` key; save it as the active profile. `--first-name` is required (stored as display name + used in onboarding emails); `--last-name` is optional. Without `--company`, the org defaults to `"<first-name>'s workspace"`.
 
 ```bash
 # Minimal
-slideless auth signup-complete --email you@example.com --code 123456
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 
-# Populate the organization at the same time
+# Populate user + organization at the same time
 slideless auth signup-complete \
   --email you@example.com --code 123456 \
+  --first-name "Alex" --last-name "Morgan" \
   --company "Acme" --description "We make widgets" \
   --brand-primary "#0a0a0a" --logo ./logo.png
 ```

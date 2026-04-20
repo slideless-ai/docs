@@ -66,8 +66,8 @@ When the user has nothing set up yet — no CLI, no key, no account — the defa
 
 1. `npm install -g slideless`
 2. `slideless auth signup-request --email <email>`
-3. Ask the user for the 6-digit code emailed to them.
-4. `slideless auth signup-complete --email <email> --code <code>`
+3. Ask the user for the 6-digit code emailed to them **and their first name** (last name is optional). `--first-name` is required on the next step.
+4. `slideless auth signup-complete --email <email> --code <code> --first-name "<first-name>"`
 
 If step 2 or 4 returns `USER_ALREADY_HAS_ORGANIZATION`, run the same two-step with `login-request` / `login-complete` instead. If login returns `USER_NOT_FOUND`, switch back to signup. Every failure includes a `nextAction` string — pass it through verbatim.
 

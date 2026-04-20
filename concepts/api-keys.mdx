@@ -20,7 +20,7 @@ The recommended path is the [`slideless` CLI](/cli/overview). Either approach st
 
 ```bash
 slideless auth signup-request --email you@example.com
-slideless auth signup-complete --email you@example.com --code 123456
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 ```
 
 `signup-complete` creates your account + organization + a `cko_` key and saves it as the active profile, all in one call. For an existing account on a new machine, use `login-request` + `login-complete` instead.
