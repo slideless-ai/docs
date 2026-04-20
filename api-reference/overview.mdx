@@ -65,6 +65,7 @@ The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: 
 |---|---|---|---|
 | [`/uploadSharedPresentation`](/api-reference/upload-presentation) | POST | API key | Create a new presentation |
 | [`/updateSharedPresentation`](/api-reference/update-presentation) | POST | API key | Replace HTML at an existing share (URL preserved) |
+| [`/sharePresentationViaEmail`](/api-reference/share-via-email) | POST | API key | Email a presentation to 1–20 recipients with per-recipient tracked links |
 | [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
 | [`/getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
 | [`/getSharedPresentation/{shareId}`](/api-reference/get-shared-presentation) | GET | Token in URL | Public — returns the raw HTML; increments view counts |

@@ -82,8 +82,24 @@ A few practical applications:
 - **Pitch decks** you tweak after each investor meeting, without recirculating.
 - **Workshop materials** that update mid-session as questions come up.
 
+## Send it straight to an inbox
+
+When you do need to hand the URL off, Slideless emails it for you. `slideless share-email <shareId> --to alice@example.com` ships a branded mail via Resend with a **unique tracked link per recipient**, so you can see who actually opened the deck. Perfect for sales outreach where you'd otherwise BCC a list and never know who read it.
+
+```bash
+slideless share-email abc123 \
+  --to alice@example.com --to bob@example.com \
+  --message "Here's the deck we discussed." \
+  --json
+```
+
+Same from Claude Code / Cursor via the `share-presentation-email` plugin skill, or from the dashboard's "Share via email" modal.
+
+See [Send a presentation by email](/guides/sharing-via-email).
+
 ## Next
 
+- **[Send a presentation by email](/guides/sharing-via-email)** — CLI, plugin, and dashboard recipes.
 - **[Update in place](/guides/updating-in-place)** — Detailed walkthrough of the re-publish flow.
 - **[Use with Claude](/guides/with-claude)** — Generate the HTML with the marketplace skills.
 - **[CLI overview](/cli/overview)** — Why the CLI is the way in.

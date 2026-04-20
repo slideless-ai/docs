@@ -31,6 +31,10 @@ A single presentation can be shared with many people, each via their own token, 
 
 The `default` token is created automatically on upload (`slideless share` returns its `tokenId` and full URL). Add more from the dashboard's presentation detail page. To inspect every token's view counter from the terminal, run `slideless get <shareId>`.
 
+<Info>
+  **Emailing a deck mints one token per recipient automatically.** When you use [`slideless share-email`](/guides/sharing-via-email), the dashboard's "Share via email" modal, or the `share-presentation-email` plugin skill, each recipient gets their own named token (`name = recipient email`). You don't have to call `add-token` manually — per-recipient opens show up under that recipient's address in the Share links table.
+</Info>
+
 ## Lifecycle
 
 ```

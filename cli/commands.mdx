@@ -143,6 +143,70 @@ cat deck.html | slideless share - --title "Piped demo"
 }
 ```
 
+### `slideless share-email <shareId>`
+
+Email an existing shared presentation to one or more recipients. Each recipient gets a unique named share link by default — the sender can then see per-recipient opens in the dashboard (or via `slideless get`).
+
+```bash
+# Single recipient
+slideless share-email 01a3b... --to alice@x.com
+
+# Multiple recipients with an optional personal note
+slideless share-email 01a3b... \
+  --to alice@x.com --to bob@y.com \
+  --message "Here's the Q2 deck we discussed." \
+  --json
+
+# Reuse an existing token for every recipient (loses per-recipient tracking)
+slideless share-email 01a3b... --to alice@x.com --token-id 01a3c... --json
+```
+
+Flags:
+
+| Flag | Notes |
+|---|---|
+| `--to <email>` | Recipient. Repeat for multiple (max 20). **Required.** |
+| `--message <text>` | Optional personal note shown in the email body (≤2000 chars). |
+| `--subject <text>` | Optional custom subject line (≤200 chars). |
+| `--token-id <id>` | Reuse a single existing token for every recipient instead of minting one per recipient. |
+
+**JSON output (success):**
+```json
+{
+  "success": true,
+  "data": {
+    "shareId": "01a3b...",
+    "sent": [
+      {
+        "email": "alice@x.com",
+        "tokenId": "01a3c...",
+        "resendMessageId": "re_...",
+        "shareUrl": "https://app.slideless.ai/share/01a3b...?token=..."
+      }
+    ],
+    "failed": [
+      { "email": "bob@bad", "code": "invalid-email", "message": "Not a valid email address." }
+    ],
+    "summary": { "total": 2, "sent": 1, "failed": 1 }
+  }
+}
+```
+
+`failed[]` contains **per-recipient** failures inside an otherwise-successful call — `success: false` only fires when zero emails could be attempted (auth, not-found, archived, too-many-recipients, etc.).
+
+Error codes specific to `share-email`:
+
+| Code | Meaning | `nextAction` |
+|---|---|---|
+| `missing-recipients` | No `--to` flags | Add at least one recipient and retry |
+| `too-many-recipients` | >20 recipients | Split into batches of ≤20 |
+| `message-too-long` | `--message` >2000 chars | Shorten or omit |
+| `archived` | Share is archived | Un-archive or create a new share |
+| `invalid-email` | Bad email syntax | Returned in `failed[]`, not top-level. Show the user which addresses were rejected. |
+| `email-send-failed` | Resend API failure | Returned in `failed[]`. Retry once; if persistent, Resend is having issues. |
+
+See the [share-via-email guide](/guides/sharing-via-email) for worked examples.
+
 ### `slideless update <shareId> <path>`
 
 Replace the HTML at an existing share. Same URL, new content, version bumps, view count preserved.
