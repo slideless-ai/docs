@@ -32,18 +32,34 @@ Two key formats are accepted:
 
 See [Authentication](/api-reference/authentication) and [API keys](/concepts/api-keys) for the full story.
 
-## Error format
+## Response format
 
-Errors return a JSON body with `error` (human-readable) and `code` (machine-readable):
+Every CLI-facing endpoint wraps its payload in a consistent envelope:
+
+**Success:**
 
 ```json
 {
-  "error": "Invalid or missing API key.",
-  "code": "unauthenticated"
+  "success": true,
+  "data": { "...": "endpoint-specific payload" }
 }
 ```
 
-The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: { message }, requestId }`) — see its [reference page](/api-reference/verify-api-key).
+**Error:**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "unauthenticated",
+    "message": "Invalid or missing API key."
+  }
+}
+```
+
+Some errors also carry `error.nextAction` (a machine-readable hint for what to do next) and `error.details` (extra structured context).
+
+The public viewer endpoint ([`getSharedPresentation`](/api-reference/get-shared-presentation)) is the only exception — it returns raw HTML because it feeds the share iframe directly.
 
 ## Status codes
 
@@ -68,6 +84,8 @@ The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: 
 | [`/sharePresentationViaEmail`](/api-reference/share-via-email) | POST | API key | Email a presentation to 1–20 recipients with per-recipient tracked links |
 | [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
 | [`/getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
+| [`/addPresentationToken`](/api-reference/add-presentation-token) | POST | API key | Mint a new named token on an existing presentation |
+| [`/revokeSharedPresentation`](/api-reference/revoke-presentation) | POST | API key | Revoke one token or archive the whole presentation |
 | [`/getSharedPresentation/{shareId}`](/api-reference/get-shared-presentation) | GET | Token in URL | Public — returns the raw HTML; increments view counts |
 | [`/verifyApiKey`](/api-reference/verify-api-key) | POST | API key | Validate a key, return its metadata |
 

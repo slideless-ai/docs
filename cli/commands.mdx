@@ -235,6 +235,32 @@ slideless get 01a3b...
 slideless get 01a3b... --json
 ```
 
+### `slideless token add <shareId>`
+
+Mint a new named share token on an existing presentation. The returned `shareUrl` is the link to hand to the recipient; the `tokenId` is what you'll pass to `slideless revoke` if you later want to cut off just that recipient.
+
+```bash
+slideless token add 01a3b... --name "Acme Corp"
+slideless token add 01a3b... --name "Acme Corp" --json
+```
+
+The `token` command is a parent namespace — future subcommands (`list`, `revoke`, …) will slot in alongside `add`.
+
+### `slideless revoke <shareId>`
+
+Revoke access to a presentation. Two modes:
+
+- Without `--token`: **archive the whole presentation**. Every token stops working. Irreversible — use `slideless share` to re-publish the same HTML with a new URL.
+- With `--token <tokenId>`: **revoke a single recipient's token**. The other tokens on the presentation keep working.
+
+```bash
+slideless revoke 01a3b...                         # archive the whole presentation
+slideless revoke 01a3b... --token 01a3c...        # revoke one recipient
+slideless revoke 01a3b... --json
+```
+
+Check `slideless get <shareId>` first to see the current token list if you need to find a specific `tokenId`.
+
 ## Config
 
 ### `slideless config show`

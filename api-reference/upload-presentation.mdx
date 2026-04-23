@@ -57,10 +57,13 @@ Example:
 
 ```json
 {
-  "shareId": "0192f1c3-8b1a-7c4d-9e3f-...",
-  "tokenId": "0192f1c3-8b1a-7c4d-9e3f-...",
-  "token": "AbCdEfGhIj...384-bit-base64url...",
-  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+  "success": true,
+  "data": {
+    "shareId": "0192f1c3-8b1a-7c4d-9e3f-...",
+    "tokenId": "0192f1c3-8b1a-7c4d-9e3f-...",
+    "token": "AbCdEfGhIj...384-bit-base64url...",
+    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+  }
 }
 ```
 
@@ -95,7 +98,8 @@ const res = await fetch(
   }
 );
 
-const { shareUrl } = await res.json();
+const { data } = await res.json();
+const { shareUrl } = data;
 ```
 
 ### Python

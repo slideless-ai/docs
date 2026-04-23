@@ -39,41 +39,44 @@ Recommended scope: `presentations:read`.
 
 ```json
 {
-  "id": "0192f1c3-...",
-  "ownerId": "user-uuid",
-  "organizationId": "org-uuid",
-  "title": "Q4 review",
-  "version": 3,
-  "createdAt": "2026-04-15T10:00:00.000Z",
-  "updatedAt": "2026-04-18T15:30:00.000Z",
-  "expiresAt": null,
-  "archived": false,
-  "archivedAt": null,
-  "totalViews": 47,
-  "lastViewedAt": "2026-04-19T09:12:00.000Z",
-  "primaryShareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...",
-  "tokens": [
-    {
-      "tokenId": "0192f1c3-...",
-      "name": "default",
-      "createdAt": "2026-04-15T10:00:00.000Z",
-      "revoked": false,
-      "revokedAt": null,
-      "lastAccessedAt": "2026-04-19T09:12:00.000Z",
-      "accessCount": 42,
-      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
-    },
-    {
-      "tokenId": "0192f1c3-...",
-      "name": "John at Acme",
-      "createdAt": "2026-04-16T11:00:00.000Z",
-      "revoked": false,
-      "revokedAt": null,
-      "lastAccessedAt": "2026-04-17T14:22:00.000Z",
-      "accessCount": 5,
-      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=GhIjKl..."
-    }
-  ]
+  "success": true,
+  "data": {
+    "id": "0192f1c3-...",
+    "ownerId": "user-uuid",
+    "organizationId": "org-uuid",
+    "title": "Q4 review",
+    "version": 3,
+    "createdAt": "2026-04-15T10:00:00.000Z",
+    "updatedAt": "2026-04-18T15:30:00.000Z",
+    "expiresAt": null,
+    "archived": false,
+    "archivedAt": null,
+    "totalViews": 47,
+    "lastViewedAt": "2026-04-19T09:12:00.000Z",
+    "primaryShareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...",
+    "tokens": [
+      {
+        "tokenId": "0192f1c3-...",
+        "name": "default",
+        "createdAt": "2026-04-15T10:00:00.000Z",
+        "revoked": false,
+        "revokedAt": null,
+        "lastAccessedAt": "2026-04-19T09:12:00.000Z",
+        "accessCount": 42,
+        "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+      },
+      {
+        "tokenId": "0192f1c3-...",
+        "name": "John at Acme",
+        "createdAt": "2026-04-16T11:00:00.000Z",
+        "revoked": false,
+        "revokedAt": null,
+        "lastAccessedAt": "2026-04-17T14:22:00.000Z",
+        "accessCount": 5,
+        "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=GhIjKl..."
+      }
+    ]
+  }
 }
 ```
 
@@ -119,7 +122,7 @@ const res = await fetch(
   { headers: { 'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}` } }
 );
 
-const info = await res.json();
+const { data: info } = await res.json();
 console.log(`${info.title} — v${info.version} — ${info.totalViews} total views`);
 for (const t of info.tokens) {
   console.log(`  • ${t.name} (${t.accessCount} views, ${t.revoked ? 'revoked' : 'active'})`);

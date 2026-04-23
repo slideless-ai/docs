@@ -35,20 +35,22 @@ No body, no query parameters. The user is inferred from the API key.
 
 ```json
 {
-  "presentations": [
-    {
-      "id": "0192f1c3-...",
-      "title": "Q4 review",
-      "version": 3,
-      "createdAt": "2026-04-15T10:00:00.000Z",
-      "updatedAt": "2026-04-18T15:30:00.000Z",
-      "archived": false,
-      "totalViews": 47,
-      "lastViewedAt": "2026-04-19T09:12:00.000Z",
-      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
-    },
-    ...
-  ]
+  "success": true,
+  "data": {
+    "presentations": [
+      {
+        "id": "0192f1c3-...",
+        "title": "Q4 review",
+        "version": 3,
+        "createdAt": "2026-04-15T10:00:00.000Z",
+        "updatedAt": "2026-04-18T15:30:00.000Z",
+        "archived": false,
+        "totalViews": 47,
+        "lastViewedAt": "2026-04-19T09:12:00.000Z",
+        "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+      }
+    ]
+  }
 }
 ```
 
@@ -84,8 +86,8 @@ const res = await fetch(
   { headers: { 'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}` } }
 );
 
-const { presentations } = await res.json();
-for (const p of presentations) {
+const { data } = await res.json();
+for (const p of data.presentations) {
   console.log(`${p.title} — v${p.version} — ${p.totalViews} views — ${p.shareUrl}`);
 }
 ```

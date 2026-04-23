@@ -56,31 +56,37 @@ Example:
 
 ```json
 {
-  "shareId": "0192f1c3-...",
-  "sent": [
-    {
-      "email": "alice@example.com",
-      "tokenId": "0192f1c3-...",
-      "resendMessageId": "re_abc123",
-      "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=..."
-    }
-  ],
-  "failed": [
-    { "email": "bob@bad", "code": "invalid-email", "message": "Not a valid email address." }
-  ],
-  "summary": { "total": 2, "sent": 1, "failed": 1 }
+  "success": true,
+  "data": {
+    "shareId": "0192f1c3-...",
+    "sent": [
+      {
+        "email": "alice@example.com",
+        "tokenId": "0192f1c3-...",
+        "resendMessageId": "re_abc123",
+        "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=..."
+      }
+    ],
+    "failed": [
+      { "email": "bob@bad", "code": "invalid-email", "message": "Not a valid email address." }
+    ],
+    "summary": { "total": 2, "sent": 1, "failed": 1 }
+  }
 }
 ```
 
-`failed[]` contains **per-recipient** failures inside an otherwise-200 response. The endpoint only returns a non-2xx status when a preflight condition fails (auth, not-found, archived, too-many-recipients, …) — i.e. when no email could be attempted for any recipient.
+`data.failed[]` contains **per-recipient** failures inside an otherwise-200 response. The endpoint only returns a non-2xx status when a preflight condition fails (auth, not-found, archived, too-many-recipients, …) — i.e. when no email could be attempted for any recipient.
 
 ## Error responses
 
 ```json
 {
-  "error": "API key does not have access to this share.",
-  "code": "permission-denied",
-  "nextAction": "Confirm the share belongs to the same org as the current API key. If not, ask the user for the correct key."
+  "success": false,
+  "error": {
+    "code": "permission-denied",
+    "message": "API key does not have access to this share.",
+    "nextAction": "Confirm the share belongs to the same org as the current API key. If not, ask the user for the correct key."
+  }
 }
 ```
 
@@ -134,8 +140,10 @@ const res = await fetch(
   },
 );
 const body = await res.json();
-if (!res.ok) throw new Error(`${body.code}: ${body.error} — ${body.nextAction}`);
-console.log(`Sent to ${body.summary.sent} of ${body.summary.total}`);
+if (!body.success) {
+  throw new Error(`${body.error.code}: ${body.error.message} — ${body.error.nextAction}`);
+}
+console.log(`Sent to ${body.data.summary.sent} of ${body.data.summary.total}`);
 ```
 
 ## See also

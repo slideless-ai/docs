@@ -102,6 +102,8 @@
           "api-reference/share-via-email",
           "api-reference/list-presentations",
           "api-reference/get-presentation",
+          "api-reference/add-presentation-token",
+          "api-reference/revoke-presentation",
           "api-reference/get-shared-presentation",
           "api-reference/verify-api-key"
         ]

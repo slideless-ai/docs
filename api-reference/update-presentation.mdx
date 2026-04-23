@@ -58,9 +58,12 @@ Example:
 
 ```json
 {
-  "shareId": "0192f1c3-...",
-  "version": 3,
-  "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+  "success": true,
+  "data": {
+    "shareId": "0192f1c3-...",
+    "version": 3,
+    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
+  }
 }
 ```
 
@@ -110,8 +113,8 @@ const res = await fetch(
   }
 );
 
-const { version } = await res.json();
-console.log('Now at version', version);
+const { data } = await res.json();
+console.log('Now at version', data.version);
 ```
 
 ## Errors

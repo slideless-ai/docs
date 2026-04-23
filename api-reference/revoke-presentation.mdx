@@ -1,0 +1,107 @@
+---
+title: "POST /revokeSharedPresentation"
+description: "Revoke a single recipient token or archive an entire shared presentation"
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless revoke <shareId> [--token <tokenId>]`.
+</Note>
+
+## When to use
+
+Two modes:
+
+- **Archive the whole presentation** (no `tokenId` in the body) — every token on this share stops working immediately. The presentation is marked `archived: true` and cannot be un-archived. Use when you want to cut off access for everyone.
+- **Revoke a single token** (pass `tokenId`) — invalidates one recipient's link while the other tokens keep working. Use to rescind access from a specific person without disrupting others.
+
+Ownership is verified server-side: a key from another organization cannot revoke your presentations.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/revokeSharedPresentation
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) — must belong to the presentation's owner |
+| `Content-Type` | `application/json` |
+
+Recommended scope: `presentations:write`.
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `shareId` | string | yes | The `shareId` of the presentation |
+| `tokenId` | string | no | If present, revoke only this token. If omitted, archive the whole presentation. |
+
+Example — archive:
+
+```json
+{ "shareId": "0192f1c3-..." }
+```
+
+Example — revoke one token:
+
+```json
+{ "shareId": "0192f1c3-...", "tokenId": "0192f1c3-abcd-..." }
+```
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": { "success": true }
+}
+```
+
+## Examples
+
+### curl — archive whole presentation
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"shareId":"0192f1c3-..."}' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/revokeSharedPresentation
+```
+
+### curl — revoke single token
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"shareId":"0192f1c3-...","tokenId":"0192f1c3-abcd-..."}' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/revokeSharedPresentation
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | `shareId` missing or `tokenId` provided but empty | Send `shareId` as a string; drop `tokenId` or send a non-empty string |
+| `401` | `unauthenticated` | Missing or invalid API key | Set a valid `Authorization` header |
+| `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
+| `404` | `not-found` | No presentation with that `shareId` | Verify the ID with `listMyPresentations` |
+| `404` | `token-not-found` | `tokenId` not on this presentation | List tokens via `getSharedPresentationInfo` |
+| `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
+| `410` | `already-archived` | Presentation already archived | No action needed — it's already revoked |
+| `410` | `token-already-revoked` | That single token was already revoked | No action needed |
+| `500` | `internal` | Backend error | Retry with exponential backoff |
+
+## Irreversibility
+
+Archiving a presentation is irreversible. To re-share the same content, upload it again via [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) — the new share gets a brand-new `shareId` and URL.
+
+Revoking a single token is also final for that token. Mint a replacement recipient link via [`POST /addPresentationToken`](/api-reference/add-presentation-token).
+
+## Next
+
+- **[POST /addPresentationToken](/api-reference/add-presentation-token)** — Create a new recipient token (for active presentations).
+- **[GET /getSharedPresentationInfo](/api-reference/get-presentation)** — Inspect a presentation's token list before revoking.
