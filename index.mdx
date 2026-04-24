@@ -28,23 +28,26 @@ slideless auth signup-request --email you@example.com
 slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 
 # A folder with assets…
-slideless share ./my-deck --title "Q4 Pitch"
+slideless push ./my-deck --title "Q4 Pitch"
 
 # …or a single HTML file
-slideless share ./deck.html --title "Q4 Pitch"
+slideless push ./deck.html --title "Q4 Pitch"
+
+# Then mint a public viewer URL for anyone.
+slideless share <presentationId>
 ```
 
 You get back a `shareUrl`. Send it to anyone. They open it in any browser, relative asset paths in your HTML (`./hero.jpg`, `./video/demo.mp4`, `./three/scene.js`) resolve natively — exactly like serving your folder from a static webserver.
 
 Signup happens from the terminal via a one-time code emailed to you. No dashboard round-trip required. If you already have a key, `slideless login` accepts it directly; see the [quickstart](/quickstart) for both paths.
 
-To update the deck without changing the URL:
+To update the deck without changing the URL, run `slideless push` again from the same folder:
 
 ```bash
-slideless update <shareId> ./my-deck
+slideless push ./my-deck
 ```
 
-Same URL, new content, view counts preserved. Unchanged files (images, video, bundles) are deduplicated by content hash — only modified files re-upload.
+The CLI reads the `slideless.json` file written on the first push to know which presentation to update. Same URL, new content, view counts preserved. Unchanged files (images, video, bundles) are deduplicated by content hash — only modified files re-upload.
 
 ## What happens behind the scenes
 
@@ -59,28 +62,29 @@ Same URL, new content, view counts preserved. Unchanged files (images, video, bu
 
 | Capability | How |
 |---|---|
-| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation`, `share-presentation`) call the CLI under the hood |
+| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation`, `push-presentation`, `share-presentation`) call the CLI under the hood |
 | Include images, video, 3D models, shaders | Put them in the deck folder, reference relatively (`./hero.jpg`, `./three/scene.js`) |
-| Upload from a script or CI pipeline | `slideless share ./my-deck --title "..." --strict --json` |
-| Update a published deck without breaking the link | `slideless update <shareId> ./my-deck`. Same URL, view count preserved, unchanged files deduplicated |
-| Freeze a recipient on a specific version | `slideless pin <shareId> <tokenId> --to-version N` |
-| Track who's viewing | `slideless list` for totals, `slideless get <shareId>` for per-token counts |
-| Send different links to different recipients | Multiple named tokens per presentation, each with its own `versionMode` |
-| Manage everything from a UI | Dashboard at https://app.slideless.ai (browsing, preview, token management, archiving) |
+| Upload from a script or CI pipeline | `slideless push ./my-deck --title "..." --strict --json` |
+| Update a published deck without breaking the link | `slideless push` from the same folder. Same URL, view count preserved, unchanged files deduplicated |
+| Freeze a recipient on a specific version | `slideless pin <presentationId> <tokenId> --to-version N` |
+| Track who's viewing | `slideless list` for totals, `slideless get <presentationId>` for per-token counts |
+| Send different links to different recipients | `slideless share <id> --name "<label>"` mints per-recipient tokens, each with its own `versionMode` |
+| Collaborate with a teammate | `slideless invite <id> --email <addr>` grants push + pull access |
+| Manage everything from a UI | Dashboard at https://app.slideless.ai (browsing, preview, token management, collaborators, delete) |
 
 ## What Slideless is not
 
 - **Not a slide editor.** You bring the HTML. Slideless hosts and shares it. Use Claude (or Reveal.js, or hand-written HTML, or any AI generator) to author.
 - **Not a PowerPoint converter.** Upload `.html` or a folder, not `.pptx`.
 - **Not a CMS.** It's purpose-built for one thing: making a deck shareable as a URL.
-- **Not a dashboard editor.** v3 uploads are CLI-driven. The dashboard handles browsing, previewing, token management, and archiving — not content editing.
+- **Not a dashboard editor.** v3 uploads are CLI-driven. The dashboard handles browsing, previewing, token management, collaborators, and deletion — not content editing.
 
 ## Architecture
 
 | Layer | What it does |
 |---|---|
 | **CLI** | `slideless` npm package, the primary interface to every operation |
-| **Public viewer** | https://app.slideless.ai/share/[shareId] renders any HTML inside a sandboxed iframe with viewer chrome |
+| **Public viewer** | https://app.slideless.ai/share/[presentationId] renders any HTML inside a sandboxed iframe with viewer chrome |
 | **Dashboard** | https://app.slideless.ai for sign in, browse presentations, create API keys, manage share tokens |
 | **HTTP API** | Cloud Functions in `europe-west1` (the CLI wraps these; see [Advanced: HTTP API](/api-reference/overview) if you need to call them directly) |
 | **Plugin skills** | Open Plugin v1 repo at https://github.com/slideless-ai/plugin, installable via `npx plugins add slideless-ai/plugin`. Skills delegate to the CLI |

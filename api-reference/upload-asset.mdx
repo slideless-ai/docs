@@ -28,8 +28,8 @@ Order-independent. Send all five in one request:
 
 | Field | Required | Description |
 |---|---|---|
-| `shareId` | one of | Existing presentation to upload into (update flow). |
-| `sessionId` | one of | Upload session (new-presentation flow). You need one of `shareId` or `sessionId`. |
+| `presentationId` | one of | Existing presentation to upload into (update flow). |
+| `sessionId` | one of | Upload session (new-presentation flow). You need one of `presentationId` or `sessionId`. |
 | `sha256` | yes | Declared hash of the bytes being uploaded (64 lowercase hex chars). |
 | `contentType` | yes | MIME type. Stored on the blob; returned in `Content-Type` headers when the viewer serves this asset. |
 | `file` | yes | The raw bytes. Any field name accepted for the file part. |
@@ -73,7 +73,7 @@ Uploads over the cap fail with `413 payload-too-large`.
 ```bash
 curl -sS -X POST \
   -H "Authorization: Bearer $SLIDELESS_API_KEY" \
-  -F "shareId=019dba77-4a1d-716e-8993-61e7c5771a7b" \
+  -F "presentationId=019dba77-4a1d-716e-8993-61e7c5771a7b" \
   -F "sha256=4edd6a4b20278337c9cd35ef2b71e375522abd1c7563301dca7eebac31b5665e" \
   -F "contentType=image/svg+xml" \
   -F "file=@./images/hero.svg" \
@@ -90,7 +90,7 @@ const bytes = await readFile('./images/hero.svg');
 const sha256 = createHash('sha256').update(bytes).digest('hex');
 const blob = new Blob([bytes], { type: 'image/svg+xml' });
 const form = new FormData();
-form.append('shareId', '019dba77-...');
+form.append('presentationId', '019dba77-...');
 form.append('sha256', sha256);
 form.append('contentType', 'image/svg+xml');
 form.append('file', blob, 'blob');
@@ -114,9 +114,8 @@ console.log('uploaded', data.sha256, '(' + data.size + ' bytes)');
 | `400` | `invalid-argument` | Missing field, bad sha256 format, or malformed multipart body |
 | `400` | `hash-mismatch` | Uploaded bytes don't match declared sha256 (blob was deleted) |
 | `401` | `unauthenticated` | Missing/invalid API key |
-| `403` | `permission-denied` | Key lacks `presentations:write`, or shareId/sessionId belongs to another user |
-| `404` | `not-found` | `shareId` or `sessionId` doesn't exist |
-| `410` | `archived` | Presentation is archived |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or caller is not the owner or an active dev collaborator |
+| `404` | `not-found` | `presentationId` or `sessionId` doesn't exist |
 | `413` | `payload-too-large` | Blob exceeds the plan's per-file cap |
 
 ## Next

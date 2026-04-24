@@ -1,6 +1,6 @@
 ---
 title: "GET /listMyPresentations"
-description: "List all presentations owned by the authenticated user"
+description: "List every presentation the authenticated user can access — decks they own plus decks shared with them"
 ---
 
 <Note>
@@ -9,9 +9,9 @@ For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling 
 
 ## When to use
 
-Enumerate the presentations created by the API key's user. Returns up to 100 results, ordered by `createdAt` descending.
+Enumerate every presentation the API key's user can access — owned decks plus decks the user has been invited to as a dev collaborator. Returns up to 100 results, ordered by `updatedAt` descending. Each row carries a `role` field (`owner` or `dev`).
 
-For full per-presentation metadata (token list, per-token access counts), use [`GET /getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation).
+For full per-presentation metadata (token list, per-token access counts), use [`GET /getSharedPresentationInfo/{presentationId}`](/api-reference/get-presentation).
 
 ## Endpoint
 
@@ -42,9 +42,9 @@ No body, no query parameters. The user is inferred from the API key.
         "id": "0192f1c3-...",
         "title": "Q4 review",
         "version": 3,
+        "role": "owner",
         "createdAt": "2026-04-15T10:00:00.000Z",
         "updatedAt": "2026-04-18T15:30:00.000Z",
-        "archived": false,
         "totalViews": 47,
         "lastViewedAt": "2026-04-19T09:12:00.000Z",
         "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf..."
@@ -56,13 +56,13 @@ No body, no query parameters. The user is inferred from the API key.
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | UUIDv7 string | The `shareId` |
+| `id` | UUIDv7 string | The `presentationId` |
 | `title` | string | Display title |
 | `version` | number | Current version |
+| `role` | `"owner"` \| `"dev"` | Caller's role on this deck |
 | `createdAt`, `updatedAt`, `lastViewedAt` | ISO 8601 string \| null | Timestamps |
-| `archived` | boolean | True if archived |
 | `totalViews` | number | Sum of views across all share tokens |
-| `shareUrl` | string \| null | An active share URL (first non-revoked token), or `null` if archived or no live token |
+| `shareUrl` | string \| null | An active share URL (first non-revoked token), or `null` if the deck has no live token |
 
 ## Pagination
 
@@ -88,7 +88,7 @@ const res = await fetch(
 
 const { data } = await res.json();
 for (const p of data.presentations) {
-  console.log(`${p.title} — v${p.version} — ${p.totalViews} views — ${p.shareUrl}`);
+  console.log(`${p.title} (${p.role}) — v${p.version} — ${p.totalViews} views — ${p.shareUrl}`);
 }
 ```
 
@@ -102,4 +102,4 @@ for (const p of data.presentations) {
 
 ## Next
 
-- **[GET /getSharedPresentationInfo/{shareId}](/api-reference/get-presentation)** — Full metadata for one presentation, including all share tokens.
+- **[GET /getSharedPresentationInfo/{presentationId}](/api-reference/get-presentation)** — Full metadata for one presentation, including all share tokens.

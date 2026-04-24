@@ -1,0 +1,46 @@
+---
+title: "POST /listCollaborators"
+description: "List every collaborator row (pending, active, revoked) on a presentation."
+---
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/listCollaborators
+```
+
+## Authentication
+
+`Authorization: Bearer <key>` — owner only.
+
+## Request body
+
+```json
+{ "presentationId": "01HXYZ..." }
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "presentationId": "01HXYZ...",
+    "collaborators": [
+      {
+        "collaboratorId": "01H...",
+        "email": "alice@example.com",
+        "userId": "uid_abc",
+        "role": "dev",
+        "status": "active",
+        "invitedAt": "2026-04-10T12:00:00.000Z",
+        "invitedBy": "uid_owner",
+        "acceptedAt": "2026-04-10T12:00:00.000Z",
+        "revokedAt": null
+      }
+    ]
+  }
+}
+```
+
+Every row (pending, active, revoked) is returned, ordered by `invitedAt` descending.

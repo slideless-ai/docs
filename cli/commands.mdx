@@ -113,42 +113,57 @@ slideless logout personal
 
 ## Presentations
 
-### `slideless share <path>`
+Slideless v0.5 collapsed the CLI to eight verbs. Each does one thing:
 
-Upload a deck as a public presentation. `<path>` can be either a **folder** (with an `index.html` and any sibling assets) or a **single `.html` file**. Use `--update <shareId>` to replace an existing share in place.
+| Verb | Job |
+|---|---|
+| `push` | Upload content (create new, or update existing) |
+| `pull` | Download content to a local folder |
+| `share` | Mint a public viewer URL |
+| `unshare` | Revoke viewer URLs |
+| `invite` | Add a dev collaborator |
+| `uninvite` | Revoke a dev collaborator |
+| `delete` | Hard-delete a presentation |
+| `list` | Show every deck you can access |
+
+The old `share <path>`, `update`, `revoke`, and `token add` commands are gone.
+
+### `slideless push [path]`
+
+Upload content — creates a new deck or updates an existing one based on whether `slideless.json` exists in the target folder.
 
 ```bash
-# Folder mode
-slideless share ./my-deck --title "Q4 Pitch"
-slideless share ./my-deck --title "Q4 Pitch" --entry custom.html
-slideless share ./my-deck --title "Q4 Pitch" --update 01a3b...
-slideless share ./my-deck --title "Q4 Pitch" --strict    # fail on unresolved refs
+# New presentation (first push in a folder)
+slideless push ./my-deck --title "Q4 Pitch"
 
-# Single-file mode (no folder walk)
-slideless share ./deck.html --title "Q4 Pitch"
+# Update (subsequent pushes in the same folder)
+slideless push                           # from inside the deck directory
+slideless push ./my-deck                 # with explicit path
+slideless push ./my-deck --force         # bypass version-conflict check
 ```
 
 Flags:
 
 | Flag | Purpose |
 |---|---|
-| `--title <title>` | **Required.** Display title shown in the dashboard. |
+| `--title <title>` | Required on first push. Display title shown in the dashboard. |
 | `--entry <filename>` | Folder mode only. Entry HTML file name. Default: `index.html`. |
-| `--update <shareId>` | Update an existing presentation in place. |
-| `--strict` | Escalate static-scan warnings (missing relative refs) to hard errors. |
+| `--force` | Skip optimistic-concurrency check on updates (bypass conflicts) |
+| `--strict` | Escalate static-scan warnings to hard errors. |
+| `--message <text>` | Short commit-style note, logged server-side. |
 
-The CLI walks the folder, hashes every file, uploads only the files that aren't already in the backend's content-addressed store, and commits a manifest. Before uploading it runs a static scan of your HTML + CSS for missing-file warnings and **parent-directory escape errors** (`../outside/foo.jpg` is always a hard error — decks must be self-contained).
+The first successful push writes a **`slideless.json`** at the deck root. That's how the CLI knows the folder is a Slideless deck — don't delete or edit this file. It's added to the built-in ignore list so it never uploads.
 
-**JSON output (create):**
+**JSON output (new):**
 ```json
 {
   "success": true,
   "data": {
-    "shareId": "01a3b...",
-    "tokenId": "01a3c...",
-    "token": "...",
+    "presentationId": "01HXYZ...",
     "version": 1,
-    "shareUrl": "https://...",
+    "role": "owner",
+    "isNew": true,
+    "slidelessJson": "slideless.json",
     "assetsUploaded": 5,
     "assetsDeduped": 0,
     "totalBytes": 42000
@@ -156,24 +171,104 @@ The CLI walks the folder, hashes every file, uploads only the files that aren't 
 }
 ```
 
-**JSON output (update):**
+**JSON output (conflict on update):**
 ```json
 {
-  "success": true,
-  "data": {
-    "shareId": "01a3b...",
-    "version": 2,
-    "shareUrl": "https://...",
-    "assetsUploaded": 1,
-    "assetsDeduped": 4,
-    "totalBytes": 41200
+  "success": false,
+  "status": 409,
+  "error": {
+    "code": "conflict",
+    "message": "Server is at version 5, client expected 3.",
+    "nextAction": "Remote has a newer version. Run `slideless pull <id>` to sync, or pass --force."
   }
 }
 ```
 
-See [Working with assets](/guides/working-with-assets) for more on folder layout, ignore rules, and asset resolution.
+A push does **not** mint a viewer URL anymore. Use `slideless share <id>` when you're ready to publish.
 
-### `slideless share-email <shareId>`
+### `slideless pull <presentationId> [path]`
+
+Download a presentation to a local folder. Writes `slideless.json` at the root so subsequent `push` commands update this presentation.
+
+```bash
+slideless pull 01HXYZ...                 # → ./<title-slug>/
+slideless pull 01HXYZ... ./my-deck       # explicit destination
+slideless pull 01HXYZ... --at 3          # pin to a specific version
+slideless pull 01HXYZ... --force         # wipe and overwrite a non-empty folder
+```
+
+Owners and active dev collaborators can pull. Every byte is re-hashed on the client and the download aborts if any SHA-256 mismatches the manifest.
+
+**JSON output:**
+```json
+{
+  "success": true,
+  "data": {
+    "presentationId": "01HXYZ...",
+    "version": 4,
+    "role": "dev",
+    "path": "/abs/path/to/deck",
+    "filesWritten": 12,
+    "bytes": 5420998
+  }
+}
+```
+
+### `slideless share <presentationId>`
+
+Mint a public viewer URL. Owner-only. Replaces the old `token add` command.
+
+```bash
+slideless share 01HXYZ...
+slideless share 01HXYZ... --name "Acme Corp"
+slideless share 01HXYZ... --pin 3                # freeze viewers on v3
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--name <text>` | Human-readable label for the token. Default: `default`. |
+| `--pin <version>` | Pin the token to a specific version. Default: follows latest. |
+
+### `slideless unshare <presentationId>`
+
+Revoke viewer URLs. The deck itself stays — you can mint new URLs later.
+
+```bash
+slideless unshare 01HXYZ...                      # revoke every token
+slideless unshare 01HXYZ... --token 01H...       # revoke just one
+```
+
+### `slideless invite <presentationId>`
+
+Invite a dev collaborator by email. Owner-only.
+
+```bash
+slideless invite 01HXYZ... --email alice@example.com
+slideless invite 01HXYZ... --email alice@example.com --message "Happy to have your help!"
+```
+
+If Alice already has a Slideless account, she's linked immediately (`status=active`). Otherwise the row is `status=pending` and auto-claims when she signs up. The invite email includes a CLI snippet and a dashboard link.
+
+### `slideless uninvite <presentationId> <collaboratorId>`
+
+Revoke a dev collaborator. Symmetric with `invite`. Revocation is immediate.
+
+```bash
+slideless uninvite 01HXYZ... 01H...
+```
+
+### `slideless delete <presentationId>`
+
+Hard-delete a presentation. Removes the Firestore doc, every version, every asset, every collaborator row. **Irreversible.**
+
+```bash
+slideless delete 01HXYZ...          # interactive — type the title to confirm
+slideless delete 01HXYZ... --yes    # skip prompt (scripts, CI)
+```
+
+### `slideless share-email <presentationId>`
 
 Email an existing shared presentation to one or more recipients. Each recipient gets a unique named share link by default — the sender can then see per-recipient opens in the dashboard (or via `slideless get`).
 
@@ -205,7 +300,7 @@ Flags:
 {
   "success": true,
   "data": {
-    "shareId": "01a3b...",
+    "presentationId": "01a3b...",
     "sent": [
       {
         "email": "alice@x.com",
@@ -222,7 +317,7 @@ Flags:
 }
 ```
 
-`failed[]` contains **per-recipient** failures inside an otherwise-successful call — `success: false` only fires when zero emails could be attempted (auth, not-found, archived, too-many-recipients, etc.).
+`failed[]` contains **per-recipient** failures inside an otherwise-successful call — `success: false` only fires when zero emails could be attempted (auth, not-found, too-many-recipients, etc.).
 
 Error codes specific to `share-email`:
 
@@ -231,56 +326,33 @@ Error codes specific to `share-email`:
 | `missing-recipients` | No `--to` flags | Add at least one recipient and retry |
 | `too-many-recipients` | >20 recipients | Split into batches of ≤20 |
 | `message-too-long` | `--message` >2000 chars | Shorten or omit |
-| `archived` | Share is archived | Un-archive or create a new share |
 | `invalid-email` | Bad email syntax | Returned in `failed[]`, not top-level. Show the user which addresses were rejected. |
 | `email-send-failed` | Resend API failure | Returned in `failed[]`. Retry once; if persistent, Resend is having issues. |
 
 See the [share-via-email guide](/guides/sharing-via-email) for worked examples.
 
-### `slideless update <shareId> <path>`
-
-Replace the deck at an existing share. Same URL, new content, version bumps, view count preserved. `<path>` takes a folder or a single `.html` file, same as `share`. Unchanged files are deduplicated — only modified files re-upload.
-
-```bash
-slideless update 01a3b... ./my-deck                       # folder
-slideless update 01a3b... ./my-deck --title "Q4 Pitch v2"
-slideless update 01a3b... ./my-deck --entry custom.html
-slideless update 01a3b... ./my-deck --strict
-slideless update 01a3b... ./deck.html                     # single file
-```
-
-If `--title` is omitted, the existing title is preserved.
-
 ### `slideless list`
 
-List your presentations (most recent first, capped at 100).
+List every presentation you can access — decks you own and decks shared with you. Each row carries a `role` column (`owner` or `dev`).
 
 ```bash
 slideless list
 slideless list --json
 ```
 
-### `slideless get <shareId>`
+### `slideless get <presentationId>`
 
-Show full metadata for a single presentation, including per-token view counts.
+Show full metadata for a single presentation.
 
-```bash
-slideless get 01a3b...
-slideless get 01a3b... --json
-```
-
-### `slideless token add <shareId>`
-
-Mint a new named share token on an existing presentation. The returned `shareUrl` is the link to hand to the recipient; the `tokenId` is what you'll pass to `slideless revoke` if you later want to cut off just that recipient.
+- For owners: versions, tokens, collaborators, view counts.
+- For dev collaborators: a read-only view with a `role: 'dev'` marker.
 
 ```bash
-slideless token add 01a3b... --name "Acme Corp"
-slideless token add 01a3b... --name "Acme Corp" --json
+slideless get 01HXYZ...
+slideless get 01HXYZ... --json
 ```
 
-The `token` command is a parent namespace — future subcommands (`list`, `revoke`, …) will slot in alongside `add`.
-
-### `slideless pin <shareId> <tokenId>`
+### `slideless pin <presentationId> <tokenId>`
 
 Change a share token's version mode — pin it to a specific version or put it back on auto-follow-latest. Only the presentation owner can pin.
 
@@ -297,22 +369,7 @@ Flags:
 | `--to-version <N>` | Pin to version N. Mutually exclusive with `--latest`. |
 | `--latest` | Follow the current version. Mutually exclusive with `--to-version`. |
 
-Recipients cannot change their own version — there is no query-param override. Use `slideless get <shareId>` to inspect every token's current `versionMode`. See [Versioning](/concepts/versioning).
-
-### `slideless revoke <shareId>`
-
-Revoke access to a presentation. Two modes:
-
-- Without `--token`: **archive the whole presentation**. Every token stops working. Irreversible — use `slideless share` to re-publish the same HTML with a new URL.
-- With `--token <tokenId>`: **revoke a single recipient's token**. The other tokens on the presentation keep working.
-
-```bash
-slideless revoke 01a3b...                         # archive the whole presentation
-slideless revoke 01a3b... --token 01a3c...        # revoke one recipient
-slideless revoke 01a3b... --json
-```
-
-Check `slideless get <shareId>` first to see the current token list if you need to find a specific `tokenId`.
+Recipients cannot change their own version — there is no query-param override. Use `slideless get <presentationId>` to inspect every token's current `versionMode`. See [Versioning](/concepts/versioning).
 
 ## Config
 
@@ -355,14 +412,16 @@ Common `code` values (share / presentations):
 | Code | Meaning |
 |---|---|
 | `unauthenticated` | Missing or invalid API key |
-| `permission-denied` | Key valid but lacks the required scope, or not the resource owner |
-| `not-found` | The `shareId` doesn't exist |
-| `archived` | Tried to update a presentation that's been archived |
+| `permission-denied` | Key valid but lacks the required scope, or caller is not owner/dev |
+| `not-found` | The `presentationId` or `collaboratorId` doesn't exist |
+| `conflict` | Push lagging behind server (409). Pull and retry, or pass `--force`. |
+| `collaborator-limit-reached` | Hit the 10-per-deck cap on concurrent invites |
+| `invalid-email` | Email in `--email` is not a valid address |
 | `payload-too-large` | File or total deck size exceeds the plan cap |
-| `hash-mismatch` | Upload bytes don't match declared sha256 (should never reach the user — internal error if it does) |
-| `blobs-missing` | `commit` was called with a manifest referencing a hash that wasn't uploaded |
+| `hash-mismatch` | Upload bytes don't match declared sha256 (or pull blob doesn't match manifest) |
+| `blobs-missing` | `commit` was called with a manifest referencing an unuploaded hash |
 | `too-many-files` | Manifest exceeds the plan's max file count |
-| `invalid-argument` | Request body is malformed (bad path, missing field, etc.) |
+| `invalid-argument` | Request body is malformed |
 | `network-error` | Couldn't reach the backend |
 | `internal` | Backend 5xx |
 

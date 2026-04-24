@@ -1,5 +1,5 @@
 ---
-title: "GET /getPresentationVersion/{shareId}/{version}"
+title: "GET /getPresentationVersion/{presentationId}/{version}"
 description: "Owner-only. Return the manifest (list of files + hashes + content types) for a specific version of a presentation."
 ---
 
@@ -10,7 +10,7 @@ Owner-only. This endpoint lets the owner inspect a past version's contents (ever
 ## Endpoint
 
 ```
-GET https://europe-west1-slideless-ai.cloudfunctions.net/getPresentationVersion/{shareId}/{version}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getPresentationVersion/{presentationId}/{version}
 ```
 
 ## Auth
@@ -25,7 +25,7 @@ Required scope: `presentations:read`.
 
 | Name | Type | Description |
 |---|---|---|
-| `shareId` | string | Presentation ID |
+| `presentationId` | string | Presentation ID |
 | `version` | integer | Version number (1 ≤ version ≤ currentVersion) |
 
 ## Response (200)
@@ -69,10 +69,10 @@ Required scope: `presentations:read`.
 
 | Status | Code | Cause |
 |---|---|---|
-| `400` | `invalid-argument` | Path is not `/{shareId}/{version}` or `version` isn't a positive integer |
+| `400` | `invalid-argument` | Path is not `/{presentationId}/{version}` or `version` isn't a positive integer |
 | `401` | `unauthenticated` | Missing/invalid API key |
 | `403` | `permission-denied` | Not the presentation's owner |
-| `404` | `not-found` | `shareId` doesn't exist, `version` exceeds `currentVersion`, or manifest file missing |
+| `404` | `not-found` | `presentationId` doesn't exist, `version` exceeds `currentVersion`, or manifest file missing |
 
 ## What this does NOT do
 

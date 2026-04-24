@@ -4,16 +4,16 @@ description: "Email an existing shared presentation to one or more recipients wi
 ---
 
 <Note>
-For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless share-email <shareId> --to <email>`. End-to-end walkthrough: [Send a presentation by email](/guides/sharing-via-email).
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless share-email <presentationId> --to <email>`. End-to-end walkthrough: [Send a presentation by email](/guides/sharing-via-email).
 </Note>
 
 ## When to use
 
-You already have a `shareId` (from [`POST /commitPresentationVersion`](/api-reference/commit-presentation-version) or `slideless share`) and you want to email it to one or more recipients. The endpoint:
+You already have a `presentationId` (from [`POST /commitPresentationVersion`](/api-reference/commit-presentation-version) or `slideless share`) and you want to email it to one or more recipients. The endpoint:
 
 - Mints a **unique named token per recipient** by default (recipient email becomes the token name), so per-recipient open tracking comes for free via the existing `accessCount` / `lastAccessedAt` fields on each `ShareToken`.
 - Sends a branded email via Resend (from `noreply@mail.slideless.ai`).
-- Records every send in `shared_presentations/{shareId}/email_sends/{autoId}` as an append-only audit trail.
+- Records every send in `shared_presentations/{presentationId}/email_sends/{autoId}` as an append-only audit trail.
 
 To reuse a single token for every recipient (shared view count, one revoke kills all), pass `tokenId`.
 
@@ -30,13 +30,13 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/sharePresentationViaEm
 | `Authorization` | `Bearer cko_…` (org key) or `Bearer cka_…` (admin key) |
 | `Content-Type` | `application/json` |
 
-Required scope: `presentations:write`. Organization keys must belong to the same org as the `shareId`.
+Required scope: `presentations:write`. Organization keys must belong to the same org as the `presentationId`.
 
 ## Request body
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `shareId` | string | yes | The presentation to email. Must belong to the caller's org and not be archived. |
+| `presentationId` | string | yes | The presentation to email. Must belong to the caller's org. |
 | `emails` | string[] | yes | 1–20 recipient email addresses. Case-insensitive, de-duplicated. |
 | `message` | string | no | Personal note shown in the email body. ≤2000 chars. |
 | `subject` | string | no | Custom subject line. Defaults to `"<senderEmail> shared: <title>"` (or `"Shared with you: <title>"` if no sender email is known). ≤200 chars. |
@@ -46,7 +46,7 @@ Example:
 
 ```json
 {
-  "shareId": "0192f1c3-8b1a-7c4d-9e3f-...",
+  "presentationId": "0192f1c3-8b1a-7c4d-9e3f-...",
   "emails": ["alice@example.com", "bob@example.com"],
   "message": "Here's the Q2 deck we discussed."
 }
@@ -58,7 +58,7 @@ Example:
 {
   "success": true,
   "data": {
-    "shareId": "0192f1c3-...",
+    "presentationId": "0192f1c3-...",
     "sent": [
       {
         "email": "alice@example.com",
@@ -75,7 +75,7 @@ Example:
 }
 ```
 
-`data.failed[]` contains **per-recipient** failures inside an otherwise-200 response. The endpoint only returns a non-2xx status when a preflight condition fails (auth, not-found, archived, too-many-recipients, …) — i.e. when no email could be attempted for any recipient.
+`data.failed[]` contains **per-recipient** failures inside an otherwise-200 response. The endpoint only returns a non-2xx status when a preflight condition fails (auth, not-found, too-many-recipients, …) — i.e. when no email could be attempted for any recipient.
 
 ## Error responses
 
@@ -95,11 +95,10 @@ Example:
 | 400 | `missing-recipients` | `emails` was empty |
 | 400 | `too-many-recipients` | >20 recipients |
 | 400 | `message-too-long` | `message` >2000 chars |
-| 400 | `invalid-argument` | Invalid `shareId`, subject too long, unknown `tokenId` |
+| 400 | `invalid-argument` | Invalid `presentationId`, subject too long, unknown `tokenId` |
 | 401 | `unauthenticated` | Missing/invalid API key |
 | 403 | `permission-denied` | Key doesn't belong to the share's org |
-| 404 | `not-found` | `shareId` doesn't exist |
-| 409 | `archived` | Share is archived |
+| 404 | `not-found` | `presentationId` doesn't exist |
 | 429 | `rate-limited` | Too many calls |
 | 500 | `internal` | Backend error |
 
@@ -114,7 +113,7 @@ curl -sS -X POST \
   -H "Authorization: Bearer $SLIDELESS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "shareId": "0192f1c3-8b1a-7c4d-9e3f-...",
+    "presentationId": "0192f1c3-8b1a-7c4d-9e3f-...",
     "emails": ["alice@example.com", "bob@example.com"],
     "message": "Here is the Q2 deck."
   }' \
@@ -133,7 +132,7 @@ const res = await fetch(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      shareId: '0192f1c3-...',
+      presentationId: '0192f1c3-...',
       emails: ['alice@example.com'],
       message: 'Here is the Q2 deck.',
     }),
@@ -149,5 +148,5 @@ console.log(`Sent to ${body.data.summary.sent} of ${body.data.summary.total}`);
 ## See also
 
 - [Send a presentation by email (guide)](/guides/sharing-via-email)
-- [`POST /commitPresentationVersion`](/api-reference/commit-presentation-version) — to create the `shareId` in the first place
+- [`POST /commitPresentationVersion`](/api-reference/commit-presentation-version) — to create the `presentationId` in the first place
 - [Share tokens](/concepts/share-tokens) — the per-recipient token model

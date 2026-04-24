@@ -70,7 +70,8 @@ The public viewer endpoint ([`getSharedPresentation`](/api-reference/get-shared-
 | `403` | Authenticated but not allowed (wrong owner, revoked token, missing scope) |
 | `404` | Resource not found, or generically returned to prevent enumeration |
 | `405` | Wrong HTTP method |
-| `410` | Gone — share expired, presentation archived, or token revoked |
+| `409` | Conflict — push's `expectedBaseVersion` lags the server |
+| `410` | Gone — token revoked or share expired |
 | `413` | Payload too large (exceeds plan cap) |
 | `500` | Internal error — retry with backoff |
 
@@ -98,20 +99,25 @@ Unchanged blobs across versions dedupe automatically — updates transfer only w
 
 | Endpoint | Method | Auth | Purpose |
 |---|---|---|---|
-| [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
-| [`/getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
+| [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List presentations you can access (owned + shared-with-you), cap 100 |
+| [`/getSharedPresentationInfo/{presentationId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
 | [`/addPresentationToken`](/api-reference/add-presentation-token) | POST | API key | Mint a new named token |
 | [`/setTokenVersionMode`](/api-reference/set-token-version-mode) | POST | API key (owner) | Pin a token to a version or follow latest |
-| [`/listPresentationVersions/{shareId}`](/api-reference/list-presentation-versions) | GET | API key (owner) | List every version's summary |
-| [`/getPresentationVersion/{shareId}/{version}`](/api-reference/get-presentation-version) | GET | API key (owner) | Get a specific version's full manifest |
-| [`/revokeSharedPresentation`](/api-reference/revoke-presentation) | POST | API key | Revoke one token or archive the presentation |
+| [`/listPresentationVersions/{presentationId}`](/api-reference/list-presentation-versions) | GET | API key (owner or dev) | List every version's summary |
+| [`/getPresentationVersion/{presentationId}/{version}`](/api-reference/get-presentation-version) | GET | API key (owner or dev) | Get a specific version's full manifest |
+| [`/downloadPresentationAsset`](/api-reference/download-presentation-asset) | GET | API key (owner or dev) | Authenticated streaming download of a single asset by sha256 |
+| [`/unsharePresentation`](/api-reference/unshare-presentation) | POST | API key (owner) | Revoke one token or every token on the deck |
+| [`/deletePresentation`](/api-reference/delete-presentation) | POST | API key (owner) | Hard delete — Firestore doc, every version, every asset, every collaborator row |
+| [`/inviteCollaborator`](/api-reference/invite-collaborator) | POST | API key (owner) | Grant dev (edit) access by email |
+| [`/uninviteCollaborator`](/api-reference/uninvite-collaborator) | POST | API key (owner) | Revoke a dev collaborator |
+| [`/listCollaborators`](/api-reference/list-collaborators) | POST | API key (owner) | Every collaborator row (pending/active/revoked) |
 | [`/sharePresentationViaEmail`](/api-reference/share-via-email) | POST | API key | Email to 1–20 recipients with per-recipient tracked links |
 
 ### Public viewer
 
 | Endpoint | Method | Auth | Purpose |
 |---|---|---|---|
-| [`/getSharedPresentation/{shareId}/_t/{token}/...`](/api-reference/get-shared-presentation) | GET | Token in URL | Serves entry HTML + assets. Range-request aware for video. |
+| [`/getSharedPresentation/{presentationId}/_t/{token}/...`](/api-reference/get-shared-presentation) | GET | Token in URL | Serves entry HTML + assets. Range-request aware for video. |
 
 ### Auth
 

@@ -64,9 +64,11 @@
         "group": "Concepts",
         "pages": [
           "concepts/presentations",
+          "concepts/lifecycle",
           "concepts/assets",
           "concepts/versioning",
           "concepts/share-tokens",
+          "concepts/collaboration",
           "concepts/api-keys"
         ]
       },
@@ -87,7 +89,6 @@
           "guides/working-with-assets",
           "guides/custom-fonts",
           "guides/uploading-via-api",
-          "guides/updating-in-place",
           "guides/sharing-via-email"
         ]
       },
@@ -104,6 +105,7 @@
           "api-reference/precheck-assets",
           "api-reference/upload-asset",
           "api-reference/commit-presentation-version",
+          "api-reference/download-presentation-asset",
           "api-reference/share-via-email",
           "api-reference/list-presentations",
           "api-reference/get-presentation",
@@ -111,7 +113,11 @@
           "api-reference/set-token-version-mode",
           "api-reference/list-presentation-versions",
           "api-reference/get-presentation-version",
-          "api-reference/revoke-presentation",
+          "api-reference/unshare-presentation",
+          "api-reference/delete-presentation",
+          "api-reference/invite-collaborator",
+          "api-reference/uninvite-collaborator",
+          "api-reference/list-collaborators",
           "api-reference/get-shared-presentation",
           "api-reference/verify-api-key"
         ]

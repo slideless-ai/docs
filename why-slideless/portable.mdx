@@ -42,10 +42,11 @@ HTML is the most portable visual format on the planet:
 
 You give a prospect a URL. They tap it on their phone in a meeting room. The deck renders in landscape, fullscreen, with your fonts, your colors, your animations. They never had to install anything, sign in to anything, or download anything. You watch the view count tick up in your dashboard.
 
-You publish that URL with one CLI command:
+You publish that URL with two CLI commands:
 
 ```bash
-slideless share ./deck.html --title "My pitch"
+slideless push ./deck.html --title "My pitch"
+slideless share <presentationId>
 ```
 
 That's the promise of HTML for presentations.

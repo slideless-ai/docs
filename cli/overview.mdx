@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: The `slideless` CLI — share, update, list, and inspect HTML presentations from your terminal.
+description: The `slideless` CLI — push, pull, share, and inspect HTML presentations from your terminal.
 ---
 
 The `slideless` CLI is the primary way to interact with the Slideless platform from any shell script, CI pipeline, or agent runtime. It wraps every public API operation behind friendly commands, handles authentication and error decoding for you, and supports stable machine-readable output via `--json`.
@@ -10,8 +10,8 @@ The `slideless` CLI is the primary way to interact with the Slideless platform f
 - **One-line auth.** `slideless login` stores a per-org profile at `~/.config/slideless/config.json`. No env-var juggling.
 - **Stable JSON output.** Every command supports `--json` with a consistent `{ success, data | error }` shape for skill and CI use.
 - **Multi-profile support.** Switch between personal and team orgs with `slideless use <name>`.
-- **Sensible errors.** The CLI decodes backend errors into short, actionable codes (`unauthenticated`, `payload-too-large`, `archived`, `permission-denied`) instead of raw HTTP numbers.
-- **Zero boilerplate in skills.** The marketplace skills (`share-presentation`, `list-presentations`, etc.) delegate to the CLI — so your skill code stays focused on the business problem.
+- **Sensible errors.** The CLI decodes backend errors into short, actionable codes (`unauthenticated`, `payload-too-large`, `conflict`, `permission-denied`) instead of raw HTTP numbers.
+- **Zero boilerplate in skills.** The marketplace skills (`push-presentation`, `share-presentation`, `list-presentations`, etc.) delegate to the CLI — so your skill code stays focused on the business problem.
 
 ## When to reach for the raw HTTP API instead
 

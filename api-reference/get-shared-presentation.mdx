@@ -1,10 +1,10 @@
 ---
-title: "GET /getSharedPresentation/{shareId}/_t/{token}/..."
+title: "GET /getSharedPresentation/{presentationId}/_t/{token}/..."
 description: "Public endpoint that serves the entry HTML and every asset of a shared presentation. Gated by an unguessable token in the URL path."
 ---
 
 <Note>
-This is the public viewer endpoint. In normal use, you don't call it directly — you share the dashboard URL (`https://app.slideless.ai/share/{shareId}?token=...`) and the viewer loads this endpoint in an iframe. Read this page only if you're embedding a deck in a custom iframe or writing an integration.
+This is the public viewer endpoint. In normal use, you don't call it directly — you share the dashboard URL (`https://app.slideless.ai/share/{presentationId}?token=...`) and the viewer loads this endpoint in an iframe. Read this page only if you're embedding a deck in a custom iframe or writing an integration.
 </Note>
 
 ## URL structure
@@ -14,7 +14,7 @@ Two forms are supported:
 ### Path-token form (preferred for iframes)
 
 ```
-GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}/_t/{token}/{assetPath}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{presentationId}/_t/{token}/{assetPath}
 ```
 
 `assetPath` empty (or equal to `manifest.entryPath`) → serves the entry HTML.
@@ -25,8 +25,8 @@ The path-token shape matters: when the entry HTML contains `<img src="./hero.jpg
 ### Flat form (curl-friendly)
 
 ```
-GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}?token={token}
-GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}/{assetPath}?token={token}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{presentationId}?token={token}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{presentationId}/{assetPath}?token={token}
 ```
 
 Same behavior; token in query string instead of path. Use this form for command-line testing.
@@ -93,9 +93,9 @@ Each Range response is capped at 50 MB per request to prevent memory spikes. Vid
 
 | Status | Code | When |
 |---|---|---|
-| `400` | `invalid-argument` | Missing `shareId` in path |
+| `400` | `invalid-argument` | Missing `presentationId` in path |
 | `403` | `revoked` | The token has been revoked |
-| `404` | `not-found` | Generic — also returned for "share doesn't exist", "token wrong", "presentation archived", "asset not in manifest", or "no token provided" (intentionally indistinct to prevent share-ID enumeration) |
+| `404` | `not-found` | Generic — also returned for "share doesn't exist", "token wrong", "asset not in manifest", or "no token provided" (intentionally indistinct to prevent share-ID enumeration) |
 | `405` | `method-not-allowed` | Used POST/PUT/etc. (only GET + HEAD accepted) |
 | `410` | `expired` | Presentation has an expiration set and it's past |
 | `416` | `range-not-satisfiable` | `Range` header requested a byte range outside the blob |
@@ -145,7 +145,6 @@ To prevent attackers from probing share IDs, Slideless returns a generic `404 no
 
 - The share ID doesn't exist
 - The share ID exists but the token is wrong
-- The share ID exists but is archived
 - No token was provided
 - An asset path doesn't resolve in the current manifest
 

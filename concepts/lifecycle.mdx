@@ -1,0 +1,59 @@
+---
+title: "Presentation lifecycle"
+description: "A deck has exactly two states: it exists, or it's deleted. Sharing, unsharing, and collaboration happen on top."
+---
+
+In v0.5, a presentation has two states:
+
+- **Exists** — it's in Firestore, its manifests + assets are in GCS, and anyone with access (owner or active dev) can pull it.
+- **Deleted** — the Firestore doc is gone, every blob under `shared_presentations/<id>/` has been removed, every collaborator row is dropped. Irreversible.
+
+There is no archive concept anymore. Archive used to double as "stop being public" AND "soft delete" — the v0.5 split is cleaner:
+
+## State transitions
+
+```
+                 push (new)
+                      │
+                      ▼
+               ┌──────────────┐
+               │ Unshared     │ ◄────┐ unshare
+               │ (tokens: {}) │      │
+               └──────┬───────┘      │
+                      │ share        │
+                      ▼              │
+               ┌──────────────┐      │
+               │ Shared       │──────┘
+               │ (≥1 token)   │
+               └──────┬───────┘
+                      │ delete
+                      ▼
+               ┌──────────────┐
+               │ Deleted      │
+               │ (gone)       │
+               └──────────────┘
+```
+
+| Action | What happens |
+|---|---|
+| `push` (first time) | Creates the deck in state `Unshared`. No viewer URL exists yet. |
+| `push` (subsequent) | Bumps the version. No effect on sharing state. |
+| `share <id>` | Mints a viewer token. Moves deck to `Shared`. |
+| `unshare <id>` | Revokes all tokens. Moves deck back to `Unshared`. |
+| `unshare <id> --token <t>` | Revokes one token. State depends on whether any other tokens remain active. |
+| `delete <id>` | Wipes the deck. Moves to `Deleted`. |
+
+## Why no archive?
+
+Archive in v0.1–v0.4 meant "this deck is soft-deleted; you can't push to it, its URLs return 404, but the data is kept in case you want to restore it." Two problems:
+
+1. It blocked owners from pushing, which broke the "I pushed, now I want to stop it being public" use case. They had to unshare AND unarchive to keep working.
+2. Restore was never implemented. Archive was in practice "deleted but lingering."
+
+Splitting into `unshare` (revoke tokens, keep the deck fully functional for editing) and `delete` (hard remove) gives each operation one clean job.
+
+## What about "shared with me"?
+
+Having dev access to a deck (see [Collaboration](/concepts/collaboration)) is independent of the deck's own lifecycle. A shared deck can be in `Unshared` state — collaborators can still push and pull. They see it in `slideless list` with `role: 'dev'`.
+
+When the owner `delete`s a deck, every collaborator row is dropped and the deck disappears from collaborators' `list`.

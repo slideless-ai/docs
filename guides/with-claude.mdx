@@ -8,12 +8,13 @@ description: "Generate, share, and update presentations from Claude Code via the
 The [`slideless-ai/plugin`](https://github.com/slideless-ai/plugin) is an [Open Plugin v1](https://github.com/vercel-labs/open-plugin-spec)-conformant plugin that lets Claude Code (and any other compatible agent) do the following:
 
 1. **Generate** an HTML presentation in a curated style — a single self-contained file, or a folder with sibling assets.
-2. **Share** it (folder or single file) and get back a public URL to send to anyone.
-3. **Update** an existing share in place. Same URL, new content, unchanged assets deduped.
-4. **List** and **get** your shared presentations (with per-token view counts and version info).
-5. **Export** to PDF locally if you need a file artifact.
+2. **Push** it (folder or single file). The first push creates the deck; subsequent pushes from the same folder update it in place.
+3. **Share** the deck to get a public viewer URL. Mint as many named tokens as you need.
+4. **Pull** a deck onto another machine (or invite a dev collaborator to do the same).
+5. **List** and **get** your presentations (owned + shared-with-you) with per-token view counts and version info.
+6. **Export** to PDF locally if you need a file artifact.
 
-The skills that publish, update, list, or fetch presentations all delegate to the [`slideless` CLI](/cli/overview). The CLI is the canonical interface; the skills wrap it so Claude can call it cleanly. Publish-side skills require the CLI installed and a profile saved via `slideless login`.
+The skills that push, pull, publish, list, or fetch presentations all delegate to the [`slideless` CLI](/cli/overview). The CLI is the canonical interface; the skills wrap it so Claude can call it cleanly. Publish-side skills require the CLI installed and a profile saved via `slideless login`.
 
 The `generate-presentation` and `export-presentation-pdf` skills are fully self-contained and do not call the backend.
 
@@ -54,9 +55,9 @@ The skill checks the CLI is installed, then picks one of three paths:
 
 At the end the key is saved to `~/.config/slideless/config.json` and every downstream skill authenticates automatically. See [`cli/auth`](/cli/auth) for the flow in detail.
 
-## Step 3 — Generate and share
+## Step 3 — Generate, push, and share
 
-Two skills, used together:
+Three skills, used together:
 
 ```
 /skill generate-presentation
@@ -64,27 +65,33 @@ Two skills, used together:
 > Style: full-deck (cinematic) or slim-tabbed (workshop)
 ```
 
-Claude writes either a single self-contained HTML file or a deck folder (if the content needs images, video, or 3D assets). Then:
+Claude writes either a single self-contained HTML file or a deck folder (if the content needs images, video, or 3D assets). Then push it:
 
 ```
-/skill share-presentation
+/skill push-presentation
 > source_path: ./q4-results      (folder) or ./q4-results.html (single file)
 > title: Q4 Results
 ```
 
-The skill runs `slideless share <source_path> --title "Q4 Results" --json` and prints the returned `shareUrl`. Send the URL to anyone.
+The skill runs `slideless push <source_path> --title "Q4 Results" --json` and returns the `presentationId`. Mint a public viewer URL:
+
+```
+/skill share-presentation
+> share_id: <the presentationId from the previous step>
+```
+
+Runs `slideless share <presentationId> --json` and prints the `shareUrl`. Send it to anyone.
 
 ## Step 4 — Iterate and re-publish
 
-Tweaks to the deck? Re-run the generator (or edit the source directly), then:
+Tweaks to the deck? Re-run the generator (or edit the source directly), then push again:
 
 ```
-/skill update-presentation
-> share_id: <the shareId from the previous step>
+/skill push-presentation
 > source_path: ./q4-results
 ```
 
-Runs `slideless update <shareId> ./q4-results`. The URL stays the same, recipients refresh and see the new content, and the view counter keeps incrementing from where it was. Unchanged assets (images, video, JS bundles) are deduplicated — only modified files re-upload.
+Runs `slideless push ./q4-results`. The skill reads `slideless.json` from the deck folder and knows this is an update — the URL stays the same, recipients refresh and see the new content, and the view counter keeps incrementing from where it was. Unchanged assets (images, video, JS bundles) are deduplicated — only modified files re-upload.
 
 ## Step 5 — List and inspect
 
@@ -96,10 +103,10 @@ Runs `slideless list --json` and prints all your decks with titles, versions, sh
 
 ```
 /skill get-presentation
-> share_id: <a shareId>
+> share_id: <a presentationId>
 ```
 
-Runs `slideless get <shareId> --json` and prints the full metadata, including each share token's individual access count and last-accessed time.
+Runs `slideless get <presentationId> --json` and prints the full metadata, including each share token's individual access count and last-accessed time.
 
 ## Local PDF export
 
@@ -122,9 +129,10 @@ See the [Plugin Skills overview](/skills/overview) for the canonical list with d
 |---|---|---|
 | `command not found: slideless` | CLI not installed | `npm install -g slideless` |
 | `unauthenticated` | Profile not saved or key revoked | Re-run `setup-slideless`, or `slideless auth login-request --email <you>` + `login-complete` |
-| `permission-denied` on share | Key missing `presentations:write` scope | Re-run `setup-slideless` (OTP-minted keys always have both scopes), or create a new dashboard key with the right scope and `slideless login` |
+| `permission-denied` on push | Key missing `presentations:write` scope | Re-run `setup-slideless` (OTP-minted keys always have both scopes), or create a new dashboard key with the right scope and `slideless login` |
 | `payload-too-large` | File or total deck exceeds the plan cap (free: 50 MB/file, 250 MB total) | Compress videos, drop unused assets, or upgrade the plan |
-| `blobs-missing` | Manifest references a hash not in the store | Should not happen in normal use — re-run `share-presentation` |
+| `conflict` on push | Someone else pushed after your last pull | Run `slideless pull <id>` and `slideless push` again, or pass `--force` to overwrite |
+| `blobs-missing` | Manifest references a hash not in the store | Should not happen in normal use — re-run `push-presentation` |
 | `too-many-files` | Manifest exceeds plan max file count | Trim the folder (`.slidelessignore`, drop unused files) |
 | Parent-escape error (static scan) | HTML references `../outside/foo.jpg` | Move the asset into the deck folder or use a CDN URL |
-| `404` when opening share URL | Token typo, presentation archived, or share ID wrong | Re-run `share-presentation` to get a fresh URL |
+| `404` when opening share URL | Token revoked, token typo, or share ID wrong | Mint a fresh token with `share-presentation`, or check `slideless get <id>` |

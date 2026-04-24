@@ -1,0 +1,96 @@
+---
+title: "Collaboration"
+description: "How to let another person push new versions of your presentation, and how decks move across your own devices."
+---
+
+Slideless distinguishes two kinds of sharing:
+
+| Mode | What it grants | How to enable |
+|---|---|---|
+| **Viewer tokens** | Read-only URLs anyone can open in a browser | `slideless share <id>` mints a token |
+| **Dev collaboration** | Edit access — another authenticated user can push new versions | `slideless invite <id> --email <addr>` |
+
+This page covers dev collaboration. For viewer tokens, see [Share tokens](/concepts/share-tokens).
+
+## Roles
+
+In v0.5, every presentation has exactly one **owner** and zero or more **dev** collaborators.
+
+- **owner** — the original creator. Can push, pull, share, unshare, invite, uninvite, delete.
+- **dev** — invited collaborator. Can pull and push new versions. Cannot mint viewer tokens, invite others, or delete the deck.
+
+The role enum is future-proof: `viewer` and `admin` will slot in later without a migration.
+
+## The `slideless.json` manifest
+
+Every folder you `push` or `pull` gets a `slideless.json` at its root:
+
+```json
+{
+  "presentationId": "01HXYZ...",
+  "lastPulledVersion": 7,
+  "lastPulledAt": "2026-04-24T12:00:00Z",
+  "role": "owner"
+}
+```
+
+This file is how Slideless knows a folder is a Slideless deck. Don't edit it manually. It's excluded from upload automatically so it never lands inside the presentation.
+
+## Invite lifecycle
+
+1. **Owner invites by email.** `slideless invite <id> --email alice@example.com`.
+2. **Invitee exists?** If Alice already has a Slideless account, she's linked immediately (`status=active`).
+3. **Invitee doesn't exist?** The row is stored `status=pending`. Alice gets an email with a link.
+4. **Claim on signup.** When Alice signs up with the same email, the existing `onUserDocumentCreated` trigger flips every matching pending row to `active` and attaches her new uid. She sees the deck next time she runs `slideless list`.
+5. **Push, pull.** Alice runs `slideless pull <id>`, edits, `slideless push`. Her pushes show up with `createdByRole: 'dev'` in the version history.
+6. **Uninvite.** `slideless uninvite <id> <collaboratorId>` — revocation is immediate.
+
+## Cross-device workflow (owner only)
+
+Even without collaborators, `push`/`pull` solve the "laptop → desktop" problem. On device A:
+
+```bash
+slideless push ./my-deck --title "Q2 review"
+```
+
+Then on device B (same account, any machine):
+
+```bash
+slideless pull <id> ./my-deck
+cd my-deck
+# edit…
+slideless push
+```
+
+## Push conflicts
+
+Every `push` on an existing presentation sends the last version you pulled as `expectedBaseVersion`. If the server has moved past that (someone else pushed), you get:
+
+```json
+{
+  "success": false,
+  "status": 409,
+  "error": {
+    "code": "conflict",
+    "message": "Server is at version 5, client expected 3.",
+    "nextAction": "Remote has a newer version (v5). Run `slideless pull <id>` to sync, or pass --force to overwrite."
+  }
+}
+```
+
+The safe fix: `slideless pull && slideless push`. `--force` bypasses the check and overwrites the remote collaborator's work — use only when you know.
+
+## Plan limits
+
+A push consumes the **pusher's** organization quota, not the owner's. A free-tier collaborator pushing to a paid-tier owner's deck spends free-tier caps on that push. This prevents a trivial abuse vector and keeps billing intuitive.
+
+## Pending-invite expiry
+
+Pending invites expire 14 days after `invitedAt`. A scheduled function flips expired rows to `revoked` automatically.
+
+## Security model
+
+- Every write endpoint re-runs an access check per request — no cached auth, no session tokens to leak.
+- Revocation is immediate: a `uninvite` takes effect on the very next API call.
+- `downloadPresentationAsset` verifies the requested SHA-256 appears in the requested version's manifest, preventing an authenticated caller from enumerating unrelated blobs.
+- The CLI re-hashes every downloaded blob and aborts on mismatch — even a compromised bucket can't ship bad bytes.

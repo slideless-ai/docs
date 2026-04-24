@@ -1,0 +1,52 @@
+---
+title: "POST /unsharePresentation"
+description: "Revoke one viewer token or every viewer token on a presentation. The deck stays — only the public URLs stop working."
+---
+
+<Note>
+Most users should reach for [`slideless unshare`](/cli/commands#slideless-unshare). This endpoint is the raw HTTP surface it wraps.
+</Note>
+
+## When to use
+
+You want to stop serving existing viewer URLs. The deck remains editable; to remove it entirely, use [`deletePresentation`](/api-reference/delete-presentation) instead.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/unsharePresentation
+```
+
+## Authentication
+
+`Authorization: Bearer <key>` — owner only.
+
+## Request body
+
+```json
+{
+  "presentationId": "01HXYZ...",
+  "tokenId": "01H..."   // optional — omit to revoke every token
+}
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "tokensRevoked": 3
+  }
+}
+```
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| 401 | `unauthenticated` | Missing/invalid key |
+| 403 | `permission-denied` | Not the owner |
+| 404 | `not-found` | `presentationId` unknown |
+| 404 | `token-not-found` | `tokenId` not on that deck |

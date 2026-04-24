@@ -1,0 +1,53 @@
+---
+title: "POST /inviteCollaborator"
+description: "Invite a user by email to edit a presentation as a dev collaborator."
+---
+
+<Note>
+The CLI wrapper is [`slideless invite`](/cli/commands#slideless-invite).
+</Note>
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/inviteCollaborator
+```
+
+## Authentication
+
+`Authorization: Bearer <key>` — owner only.
+
+## Request body
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `presentationId` | string | yes | Presentation to invite into. |
+| `email` | string | yes | Invitee's email (lowercased server-side). |
+| `message` | string | no | Personal message in the invite email. |
+
+## Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "collaboratorId": "01H...",
+    "email": "alice@example.com",
+    "status": "pending",            // or "active" if user already exists
+    "userId": null,
+    "inviteAlreadyExisted": false
+  }
+}
+```
+
+- `active` — the email maps to an existing Slideless user; access granted immediately.
+- `pending` — a row was stored; the `onUserDocumentCreated` trigger claims it on signup.
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| 400 | `invalid-email` | Malformed email |
+| 403 | `permission-denied` | Not the owner |
+| 404 | `not-found` | `presentationId` unknown |
+| 429 | `collaborator-limit-reached` | Hit the per-presentation cap (10 active+pending in v1) |

@@ -1,5 +1,5 @@
 ---
-title: "GET /listPresentationVersions/{shareId}"
+title: "GET /listPresentationVersions/{presentationId}"
 description: "Owner-only. Summary of every committed version of a presentation, with title, author, file count, and total bytes."
 ---
 
@@ -10,7 +10,7 @@ This is an owner-only endpoint — public viewers (recipients with just a share 
 ## Endpoint
 
 ```
-GET https://europe-west1-slideless-ai.cloudfunctions.net/listPresentationVersions/{shareId}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/listPresentationVersions/{presentationId}
 ```
 
 ## Auth
@@ -25,7 +25,7 @@ Required scope: `presentations:read`.
 
 | Name | Type | Description |
 |---|---|---|
-| `shareId` | string | Presentation ID |
+| `presentationId` | string | Presentation ID |
 
 ## Response (200)
 
@@ -33,7 +33,7 @@ Required scope: `presentations:read`.
 {
   "success": true,
   "data": {
-    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+    "presentationId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
     "currentVersion": 3,
     "versions": [
       {
@@ -71,10 +71,10 @@ Versions are returned in ascending order (oldest first). `currentVersion` is the
 
 | Status | Code | Cause |
 |---|---|---|
-| `400` | `invalid-argument` | Missing `shareId` in path |
+| `400` | `invalid-argument` | Missing `presentationId` in path |
 | `401` | `unauthenticated` | Missing/invalid API key |
 | `403` | `permission-denied` | Not the presentation's owner |
-| `404` | `not-found` | No presentation with that `shareId` |
+| `404` | `not-found` | No presentation with that `presentationId` |
 
 ## Next
 

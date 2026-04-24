@@ -21,7 +21,7 @@ Slideless accepts two shapes, same URL, same backend:
 **Single HTML file** — maximum portability, everything inline. Use for text-heavy decks, or when you're embedding images as base64 anyway.
 
 ```bash
-slideless share ./deck.html --title "My talk"
+slideless push ./deck.html --title "My talk"
 ```
 
 **Folder** — any layout, no forced `/assets/` convention. Use when you have images, video, 3D models, shaders, or separate CSS/JS bundles. Relative paths inside the HTML (`./hero.jpg`, `./images/logo.png`, `./three/scene.js`) resolve exactly like a static webserver.
@@ -38,10 +38,10 @@ deck/
 ```
 
 ```bash
-slideless share ./deck --title "My talk"
+slideless push ./deck --title "My talk"
 ```
 
-The CLI walks the folder and uploads every file that isn't in the default ignore list (`.git/`, `node_modules/`, `.DS_Store`, `*.log`, etc.) plus whatever a `.slidelessignore` file at the folder root excludes. Parent-directory references (`<img src="../outside/foo.jpg">`) are rejected at upload time — decks must be self-contained within their root.
+The CLI walks the folder and uploads every file that isn't in the default ignore list (`.git/`, `node_modules/`, `.DS_Store`, `*.log`, `slideless.json`, etc.) plus whatever a `.slidelessignore` file at the folder root excludes. Parent-directory references (`<img src="../outside/foo.jpg">`) are rejected at upload time — decks must be self-contained within their root.
 
 See [Working with assets](/guides/working-with-assets) for a deep dive.
 
@@ -61,7 +61,7 @@ Uploading content that exceeds any cap returns `413 payload-too-large`. External
 
 ## Content-addressed storage and deduplication
 
-Under the hood, each file is stored at a path derived from its SHA-256 hash. When you update a deck, only the files whose contents actually changed re-upload — everything else dedupes. A five-version deck with one changed image across versions costs you ~1.1× the size, not 5×.
+Under the hood, each file is stored at a path derived from its SHA-256 hash. When you push an update, only the files whose contents actually changed re-upload — everything else dedupes. A five-version deck with one changed image across versions costs you ~1.1× the size, not 5×.
 
 The CLI reports dedup hits after every upload:
 
@@ -72,14 +72,17 @@ Assets deduped:  12
 
 ## Lifecycle
 
-1. **Upload** via `slideless share <path>` — creates a new presentation, mints a default token whose `versionMode` is `latest`.
-2. **View**: anyone with the token URL renders the deck in a sandboxed iframe; view count increments server-side.
-3. **Update** via `slideless update <shareId> <path>` — creates a new immutable version, bumps `currentVersion`, preserves tokens + view counters, dedupes unchanged files.
-4. **Pin** via `slideless pin <shareId> <tokenId> --to-version <N>` — freeze a specific recipient on a specific version so later updates don't affect their view.
-5. **Revoke** from the dashboard — individual tokens return 403, or archive the whole presentation (all tokens dead, cannot un-archive).
+1. **Push** via `slideless push <path> --title "..."` — creates a new unshared presentation. No public URL yet. Writes `slideless.json` at the deck root.
+2. **Share** via `slideless share <presentationId>` — mints a viewer token whose `versionMode` is `latest`. The URL this returns is what you send to recipients.
+3. **View**: anyone with the token URL renders the deck in a sandboxed iframe; view count increments server-side.
+4. **Collaborate** via `slideless invite <presentationId> --email <addr>` — grant another user push + pull access. See [Collaboration](/concepts/collaboration).
+5. **Re-push** — run `slideless push` again from the same folder to bump the version. Tokens + view counters preserved, unchanged files deduped.
+6. **Pin** via `slideless pin <presentationId> <tokenId> --to-version <N>` — freeze a specific recipient on a specific version so later pushes don't affect their view.
+7. **Unshare** via `slideless unshare <presentationId>` — revoke every token on the deck (or one, with `--token <tokenId>`). The deck itself stays editable; you can mint new URLs later.
+8. **Delete** via `slideless delete <presentationId>` — hard-remove the deck, every version, every asset, every collaborator row. Irreversible. See [Lifecycle](/concepts/lifecycle).
 
 ## Not yet in v3
 
 - Expiry dates (schema supports `expiresAt`, not exposed in CLI/dashboard yet).
 - Garbage-collection of unreferenced blobs (storage grows with history; manual cleanup not automated).
-- In-dashboard upload — v3 uploads are CLI-only. The dashboard handles browsing, previewing, token management, and archiving.
+- In-dashboard upload — v3 uploads are CLI-only. The dashboard handles browsing, previewing, token management, collaborators, sharing/unsharing, and deletion.

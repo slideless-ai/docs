@@ -56,7 +56,7 @@ Output:
 
 Your `cko_` key is now stored in `~/.config/slideless/config.json` (mode `0600`) and set as the active profile. You can pass extra flags like `--last-name "Morgan"`, `--company "Acme"`, `--brand-primary "#0a0a0a"`, or `--logo ./logo.png` to fill in user/organization details at the same time — see [`cli/auth`](/cli/auth) for the full list.
 
-## Step 4 — Share your first presentation
+## Step 4 — Push your first presentation
 
 ### Option A: single HTML file
 
@@ -71,7 +71,7 @@ Save a minimal `deck.html`:
 Upload it:
 
 ```bash
-slideless share ./deck.html --title "My first deck"
+slideless push ./deck.html --title "My first deck"
 ```
 
 ### Option B: folder with assets
@@ -99,10 +99,10 @@ my-deck/
 </html>
 ```
 
-Upload the folder — the CLI walks it, hashes every file, and uploads only what's missing on the backend (later updates will skip unchanged files):
+Upload the folder — the CLI walks it, hashes every file, and uploads only what's missing on the backend (later pushes will skip unchanged files):
 
 ```bash
-slideless share ./my-deck --title "My first deck"
+slideless push ./my-deck --title "My first deck"
 ```
 
 Either way the output looks like:
@@ -118,18 +118,31 @@ Either way the output looks like:
   ↑ [3/3] styles.css (154 B)
   → Committing version…
 
-✓ Presentation shared
+✓ Presentation pushed
 
   Share ID:        0192f1c3-...
-  Token ID:        0192f1c3-...
   Version:         1
   Assets uploaded: 3
   Assets deduped:  0
   Total bytes:     42 KB
-  Share URL:       https://app.slideless.ai/share/0192f1c3-...?token=...
 ```
 
-## Step 5 — Open the share URL
+A `slideless.json` was also written at the folder root. That's how the CLI knows the folder is a Slideless deck — subsequent `slideless push` calls from here re-publish in place. Don't edit or delete it.
+
+## Step 5 — Mint a public viewer URL
+
+The push created the deck but didn't publish it. Mint a viewer token:
+
+```bash
+slideless share 0192f1c3-...
+```
+
+```text
+✓ Share URL minted
+
+  Token ID:   0192f1c3-...
+  Share URL:  https://app.slideless.ai/share/0192f1c3-...?token=...
+```
 
 Paste the `Share URL` into a new browser tab. You'll see your HTML rendered inside the Slideless viewer chrome: fullscreen toggle, download menu, "Made with Slideless" footer.
 
@@ -149,14 +162,26 @@ slideless get 0192f1c3-...
 
 ## Updating in place
 
-Edit your deck (change the HTML, swap an image), then re-publish to the same URL:
+Edit your deck (change the HTML, swap an image), then re-publish from the same folder:
 
 ```bash
-# Same path as your original share
-slideless update 0192f1c3-... ./my-deck
+slideless push ./my-deck
 ```
 
-Recipients see the new content on next load. The URL doesn't change, the view count is preserved, and only files whose contents actually changed re-upload — the rest are deduplicated. A one-image swap on a 200 MB deck transfers ~the size of that one image, not 200 MB.
+The CLI reads `slideless.json` from the folder, recognises this as an update, and bumps the version. Recipients see the new content on next load. The URL doesn't change, the view count is preserved, and only files whose contents actually changed re-upload — the rest are deduplicated. A one-image swap on a 200 MB deck transfers ~the size of that one image, not 200 MB.
+
+## Pick it up on another device
+
+Already pushed on your laptop and want to keep iterating from your desktop? On the second machine:
+
+```bash
+slideless pull 0192f1c3-... ./my-deck
+cd my-deck
+# edit freely…
+slideless push
+```
+
+`pull` writes the same `slideless.json` at the root so `push` knows which deck to update. See [Collaboration](/concepts/collaboration) for the conflict model when two machines push concurrently.
 
 ## Pin a recipient to a specific version
 
@@ -203,6 +228,7 @@ This does the same thing as `signup-complete` / `login-complete`: verifies the k
 - **[CLI command reference](/cli/commands)** — every command, every flag.
 - **[Auth (OTP signup & login)](/cli/auth)** — deep dive on the OTP flow, including the full error-code table.
 - **[Why Slideless](/why-slideless/portable)** — why HTML beats `.pptx` for sharing decks.
-- **[Update in place](/guides/updating-in-place)** — re-publishing mechanics in depth.
-- **[Use with Claude](/guides/with-claude)** — have Claude generate and share decks for you with the marketplace skills.
+- **[Collaboration](/concepts/collaboration)** — invite a teammate, move a deck across devices, resolve push conflicts.
+- **[Presentation lifecycle](/concepts/lifecycle)** — exists vs deleted, unshare vs delete.
+- **[Use with Claude](/guides/with-claude)** — have Claude generate and publish decks for you with the marketplace skills.
 - **[HTTP API reference](/api-reference/overview)** — for when you need to call the backend without the CLI.

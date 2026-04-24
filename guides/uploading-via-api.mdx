@@ -41,10 +41,10 @@ Or save it to a profile in non-interactive mode:
 slideless login --api-key "$SLIDELESS_API_KEY" --name ci
 ```
 
-## Publish a folder
+## Push a folder
 
 ```bash
-slideless share ./my-deck --title "Q4 review" --json
+slideless push ./my-deck --title "Q4 review" --json
 ```
 
 Output:
@@ -53,11 +53,10 @@ Output:
 {
   "success": true,
   "data": {
-    "shareId": "0192f1c3-...",
-    "tokenId": "0192f1c3-...",
-    "token": "AbCdEf...",
+    "presentationId": "0192f1c3-...",
     "version": 1,
-    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...",
+    "role": "owner",
+    "isNew": true,
     "assetsUploaded": 5,
     "assetsDeduped": 0,
     "totalBytes": 194000
@@ -65,10 +64,17 @@ Output:
 }
 ```
 
-Extract the share URL:
+Extract the presentationId:
 
 ```bash
-SHARE_URL=$(slideless share ./my-deck --title "Q4 review" --json | jq -r '.data.shareUrl')
+SHARE_ID=$(slideless push ./my-deck --title "Q4 review" --json | jq -r '.data.presentationId')
+echo "Pushed: $SHARE_ID"
+```
+
+A fresh push creates the deck but does not publish it — viewer URLs only exist once you mint a token:
+
+```bash
+SHARE_URL=$(slideless share "$SHARE_ID" --json | jq -r '.data.shareUrl')
 echo "Published: $SHARE_URL"
 ```
 
@@ -77,7 +83,7 @@ The exit code is non-zero on failure, so the CI step fails fast if the upload er
 ### Single-file alternative
 
 ```bash
-slideless share ./deck.html --title "Q4 review" --json
+slideless push ./deck.html --title "Q4 review" --json
 ```
 
 Both forms work interchangeably — same endpoints, same response shape.
@@ -87,22 +93,29 @@ Both forms work interchangeably — same endpoints, same response shape.
 In CI you probably want unresolved references (typos, missing files) to fail the build rather than just warn:
 
 ```bash
-slideless share ./my-deck --title "Q4 review" --strict --json
+slideless push ./my-deck --title "Q4 review" --strict --json
 ```
 
 ## Re-publish to the same URL
 
-Save the `shareId` somewhere durable (a CI variable, a file in the repo, a secret store). Then:
+Ensure the deck folder still contains its `slideless.json` (written by the first push), then:
 
 ```bash
-slideless update "$SHARE_ID" ./my-deck --json
+slideless push ./my-deck --json
 ```
 
-Only changed files re-upload — the rest are deduplicated. See [Update a presentation in place](/guides/updating-in-place) for the full pattern.
+The CLI reads `slideless.json`, sends `expectedBaseVersion`, and commits a new version to the same `presentationId`. Only changed files re-upload — the rest are deduplicated.
+
+If the CI runner doesn't persist the working copy between runs (fresh clone each time), you have two choices:
+
+1. Commit `slideless.json` into your repo so it comes back with each clone.
+2. Save the `presentationId` in a CI secret and `slideless pull "$SHARE_ID" ./my-deck` before running your build step, then `slideless push ./my-deck --json`.
+
+If another push landed between your last pull and this one, you'll get `409 conflict`. Pull and retry, or pass `--force` to overwrite.
 
 ## The upload protocol under the hood
 
-`slideless share` and `slideless update` are thin wrappers around three HTTP endpoints:
+`slideless push` is a thin wrapper around three HTTP endpoints:
 
 1. **[`POST /precheckAssets`](/api-reference/precheck-assets)** — send a list of SHA-256 hashes, get back which ones the backend doesn't have.
 2. **[`POST /uploadPresentationAsset`](/api-reference/upload-asset)** — multipart upload of one missing blob (content-addressed; server re-verifies the hash).
@@ -132,13 +145,13 @@ Don't confuse the **share URL** (what you give recipients) with the **direct dec
 
 | Purpose | URL | When |
 |---|---|---|
-| **Share URL** for recipients | `https://app.slideless.ai/share/{shareId}?token={token}` | What `slideless share` returns. Send this to people. |
-| **Direct deck URL** for iframing | `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}/_t/{token}/` | Loads the entry HTML; relative asset paths (`./foo.jpg`) resolve natively. |
+| **Share URL** for recipients | `https://app.slideless.ai/share/{presentationId}?token={token}` | What `slideless share <id>` returns. Send this to people. |
+| **Direct deck URL** for iframing | `https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{presentationId}/_t/{token}/` | Loads the entry HTML; relative asset paths (`./foo.jpg`) resolve natively. |
 
 The share URL wraps the direct deck URL in chrome (download button, fullscreen toggle, footer). The direct URL is the raw rendering surface.
 
 ## Next
 
-- **[Update in place](/guides/updating-in-place)** — Re-publish without changing the URL.
 - **[CLI command reference](/cli/commands)** — Every command and flag.
+- **[Collaboration](/concepts/collaboration)** — Cross-device push/pull and the conflict model.
 - **[Working with assets](/guides/working-with-assets)** — Folder layout, ignore rules, relative path behavior.

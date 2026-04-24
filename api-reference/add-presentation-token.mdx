@@ -4,7 +4,7 @@ description: "Mint a new named share token on an existing presentation so you ca
 ---
 
 <Note>
-For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless token add <shareId> --name "Acme"`.
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless share <presentationId> --name "Acme"`.
 </Note>
 
 ## When to use
@@ -38,21 +38,21 @@ Recommended scope: `presentations:write`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `shareId` | string | yes | The `shareId` of the existing presentation |
+| `presentationId` | string | yes | The `presentationId` of the existing presentation |
 | `tokenName` | string | yes | Human-readable label. Shown in `getSharedPresentationInfo` and the dashboard. |
 | `versionMode` | object | no | Either `{"type":"latest"}` (default) or `{"type":"pinned","version":N}` where N ≤ current version. See [Versioning](/concepts/versioning). |
 
 Example — default (follows latest):
 
 ```json
-{ "shareId": "0192f1c3-...", "tokenName": "Acme Corp" }
+{ "presentationId": "0192f1c3-...", "tokenName": "Acme Corp" }
 ```
 
 Example — pinned to v2:
 
 ```json
 {
-  "shareId": "0192f1c3-...",
+  "presentationId": "0192f1c3-...",
   "tokenName": "Acme Corp",
   "versionMode": { "type": "pinned", "version": 2 }
 }
@@ -73,7 +73,7 @@ Example — pinned to v2:
 
 | Field | Type | Description |
 |---|---|---|
-| `tokenId` | string | Opaque identifier. Pass it to `revokeSharedPresentation` to cut off just this recipient. |
+| `tokenId` | string | Opaque identifier. Pass it to `unsharePresentation` (with `--token`) to cut off just this recipient. |
 | `token` | string | The raw secret embedded in the URL. Never shown again — store the `shareUrl` instead. |
 | `shareUrl` | string | The link to hand to the recipient. |
 
@@ -85,7 +85,7 @@ Example — pinned to v2:
 curl -sS -X POST \
   -H "Authorization: Bearer $SLIDELESS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"shareId":"0192f1c3-...","tokenName":"Acme Corp"}' \
+  -d '{"presentationId":"0192f1c3-...","tokenName":"Acme Corp"}' \
   https://europe-west1-slideless-ai.cloudfunctions.net/addPresentationToken
 ```
 
@@ -100,7 +100,7 @@ const res = await fetch(
       'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ shareId: '0192f1c3-...', tokenName: 'Acme Corp' })
+    body: JSON.stringify({ presentationId: '0192f1c3-...', tokenName: 'Acme Corp' })
   }
 );
 const { data } = await res.json();
@@ -111,15 +111,14 @@ console.log('Send this URL to the recipient:', data.shareUrl);
 
 | Status | Code | Cause | Fix |
 |---|---|---|---|
-| `400` | `invalid-argument` | `shareId` or `tokenName` missing or wrong type / empty | Send both as non-empty strings |
+| `400` | `invalid-argument` | `presentationId` or `tokenName` missing or wrong type / empty | Send both as non-empty strings |
 | `401` | `unauthenticated` | Missing or invalid API key | Set a valid `Authorization` header |
 | `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
-| `404` | `not-found` | No presentation with that `shareId` | Verify with `listMyPresentations` |
+| `404` | `not-found` | No presentation with that `presentationId` | Verify with `listMyPresentations` |
 | `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
-| `410` | `archived` | Presentation is archived | Cannot add tokens to an archived deck — create a new share with `slideless share <path>` |
 | `500` | `internal` | Backend error | Retry with exponential backoff |
 
 ## Next
 
-- **[POST /revokeSharedPresentation](/api-reference/revoke-presentation)** — Revoke a specific recipient's token later.
+- **[POST /unsharePresentation](/api-reference/unshare-presentation)** — Revoke one token, or every token on the deck.
 - **[GET /getSharedPresentationInfo](/api-reference/get-presentation)** — See every token on a presentation with per-token view counts.

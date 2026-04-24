@@ -35,13 +35,13 @@ Required scope: `presentations:write`.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `hashes` | `string[]` | yes | SHA-256 hashes (64 lowercase hex chars each). Max 2000 per call. |
-| `shareId` | string | no | Check against this existing presentation's blob store. Requires ownership. |
-| `sessionId` | string | no | Carry a session from a prior call. Mutually exclusive with `shareId`. |
+| `presentationId` | string | no | Check against this existing presentation's blob store. Requires ownership. |
+| `sessionId` | string | no | Carry a session from a prior call. Mutually exclusive with `presentationId`. |
 
 Call patterns:
 
-- **New presentation (first call):** omit both `shareId` and `sessionId`. Response includes `sessionId` + reserved `shareId` to use for `uploadPresentationAsset` and `commitPresentationVersion`.
-- **Update existing presentation:** pass `shareId`. Backend checks dedup against that presentation's blob store.
+- **New presentation (first call):** omit both `presentationId` and `sessionId`. Response includes `sessionId` + reserved `presentationId` to use for `uploadPresentationAsset` and `commitPresentationVersion`.
+- **Update existing presentation:** pass `presentationId`. Backend checks dedup against that presentation's blob store.
 - **Subsequent calls in a new-presentation flow:** pass the `sessionId` you got from the first call.
 
 Example:
@@ -57,7 +57,7 @@ Example:
 
 ## Response (200)
 
-### New-presentation flow (no shareId in request)
+### New-presentation flow (no presentationId in request)
 
 ```json
 {
@@ -68,12 +68,12 @@ Example:
       "c3d6ce7c672be2d98d555bed4504b944c9730ec33baf35b778cc049cf928ccb0"
     ],
     "sessionId": "019dba77-...",
-    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b"
+    "presentationId": "019dba77-4a1d-716e-8993-61e7c5771a7b"
   }
 }
 ```
 
-### Update flow (shareId in request)
+### Update flow (presentationId in request)
 
 ```json
 {
@@ -88,7 +88,7 @@ Example:
 |---|---|
 | `missing` | Subset of input hashes that need uploading. Everything else is already in the store. |
 | `sessionId` | Only present on new-presentation flow. Pass on subsequent calls. Sessions auto-expire after 1 hour. |
-| `shareId` | Only present on new-presentation flow. The reserved shareId for the final commit. |
+| `presentationId` | Only present on new-presentation flow. The reserved presentationId for the final commit. |
 
 ## Errors
 
@@ -96,9 +96,8 @@ Example:
 |---|---|---|
 | `400` | `invalid-argument` | `hashes` isn't an array, >2000 entries, or entries don't match the sha256 regex |
 | `401` | `unauthenticated` | Missing/invalid API key |
-| `403` | `permission-denied` | Key lacks `presentations:write`, or shareId/sessionId owned by another user |
-| `404` | `not-found` | `shareId` or `sessionId` doesn't exist (sessions expire after 1 hour) |
-| `410` | `archived` | Presentation is archived — cannot add assets |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or caller is not the owner or an active dev collaborator |
+| `404` | `not-found` | `presentationId` or `sessionId` doesn't exist (sessions expire after 1 hour) |
 
 ## Next
 

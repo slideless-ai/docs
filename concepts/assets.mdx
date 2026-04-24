@@ -47,7 +47,7 @@ If a format you need isn't detected correctly, file an issue — overrides live 
 Every asset is stored at a path derived from its SHA-256:
 
 ```
-shared_presentations/{shareId}/assets/sha256/{first-two-hex-chars}/{full-hash}
+shared_presentations/{presentationId}/assets/sha256/{first-two-hex-chars}/{full-hash}
 ```
 
 Three consequences:
@@ -75,11 +75,11 @@ Each version has a manifest file in Cloud Storage listing every file by literal 
 }
 ```
 
-When the viewer fetches `/share/{shareId}/images/hero.jpg`, the backend resolves the current (or pinned) version's manifest, looks up the literal path, reads the hash, and streams the blob. No HTML rewriting, no URL mangling — the author's `<img src="./images/hero.jpg">` goes straight through.
+When the viewer fetches `/share/{presentationId}/images/hero.jpg`, the backend resolves the current (or pinned) version's manifest, looks up the literal path, reads the hash, and streams the blob. No HTML rewriting, no URL mangling — the author's `<img src="./images/hero.jpg">` goes straight through.
 
 ## Relative paths and the deck root
 
-The deck root is whatever you passed to `slideless share`. Paths in HTML and CSS are resolved relative to the file they appear in:
+The deck root is whatever you passed to `slideless push`. Paths in HTML and CSS are resolved relative to the file they appear in:
 
 - `./foo.jpg` from `index.html` → `foo.jpg` (deck root)
 - `../assets/foo.jpg` from `index.html` → **rejected** (escapes the deck root)
@@ -99,4 +99,4 @@ See [Presentations](/concepts/presentations#size-and-file-count-caps) for the fu
 ## What doesn't count against your quota
 
 - External CDN dependencies (`https://unpkg.com/three@0.160/...`, Google Fonts, any `https://` URL).
-- Deduped assets on `slideless update` — if an image is unchanged, it doesn't re-upload and doesn't re-charge storage.
+- Deduped assets on a subsequent `slideless push` — if an image is unchanged, it doesn't re-upload and doesn't re-charge storage.

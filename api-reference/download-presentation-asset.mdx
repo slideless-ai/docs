@@ -1,0 +1,59 @@
+---
+title: "GET /downloadPresentationAsset"
+description: "Stream a single content-addressed asset, authenticated. The CLI-side counterpart to the public viewer."
+---
+
+<Note>
+For most use cases, the [`slideless pull`](/cli/commands#slideless-pull) command handles this endpoint for you — it fetches the manifest and iterates over assets automatically.
+</Note>
+
+## When to use
+
+You're writing a tool that pulls a presentation owned by you or shared with you as a dev collaborator. The endpoint streams one content-addressed blob at a time; pair it with [`GET /getPresentationVersion`](/api-reference/get-presentation-version) to get the manifest (path → sha256 mapping) first.
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/downloadPresentationAsset
+    ?presentationId=<presentationId>
+    &sha256=<hex64>
+    [&version=<N>]
+```
+
+## Authentication
+
+| Header | Required | Notes |
+|---|---|---|
+| `Authorization: Bearer <key>` | yes | `cko_` org key or `cka_` admin key. |
+
+The caller must be the owner or an active dev collaborator.
+
+## Query parameters
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `presentationId` | string | yes | The presentation ID. |
+| `sha256` | string | yes | 64 lowercase hex chars — the blob's content hash from the manifest. |
+| `version` | integer | no | Which version's manifest to validate against. Default: `currentVersion`. |
+
+## Response
+
+`200 OK` streams the blob body. Content-Type matches the manifest entry. Supports HTTP Range requests (`Accept-Ranges: bytes`) — useful for large assets.
+
+The custom `X-Slideless-Sha256` response header echoes the requested hash; the CLI uses it to confirm it got the blob it asked for.
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| 401 | `unauthenticated` | Missing or invalid API key | Authenticate via `slideless login`. |
+| 403 | `permission-denied` | Not the owner or an active dev collaborator | Ask for an invite or verify the key owner. |
+| 404 | `not-found` | `presentationId`, `version`, or `sha256` unknown | Double-check the manifest. |
+
+## Examples
+
+```bash
+curl -H "Authorization: Bearer cko_…" \
+  "https://europe-west1-slideless-ai.cloudfunctions.net/downloadPresentationAsset?presentationId=01HXYZ&sha256=abcdef…" \
+  --output asset.bin
+```

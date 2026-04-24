@@ -5,9 +5,9 @@ description: "Every update creates a new immutable version. Tokens resolve to ei
 
 ## Append-only history
 
-Every call to `slideless update` creates a new version of the presentation. Versions are numbered `1, 2, 3, …` starting from the initial upload. Each version is an **immutable manifest file** in Cloud Storage — `manifests/v1.json`, `manifests/v2.json`, etc.
+Every `slideless push` to an existing deck creates a new version. Versions are numbered `1, 2, 3, …` starting from the initial push. Each version is an **immutable manifest file** in Cloud Storage — `manifests/v1.json`, `manifests/v2.json`, etc.
 
-Nothing is overwritten. If you upload a bad v3 and fix it as v4, v3 is still on disk; the `currentVersion` pointer just moves forward.
+Nothing is overwritten. If you push a bad v3 and fix it as v4, v3 is still on disk; the `currentVersion` pointer just moves forward.
 
 ## How tokens see versions
 
@@ -26,10 +26,10 @@ Change a token's mode from the terminal:
 
 ```bash
 # Pin a specific recipient to version 3
-slideless pin <shareId> <tokenId> --to-version 3
+slideless pin <presentationId> <tokenId> --to-version 3
 
 # Put them back on auto-update
-slideless pin <shareId> <tokenId> --latest
+slideless pin <presentationId> <tokenId> --latest
 ```
 
 Or from the dashboard: open the presentation detail page, each token has a "pinned to v<N>" / "following latest" control.
@@ -44,8 +44,8 @@ This is load-bearing. There is **no `?v=N` query parameter** on the viewer. A re
 
 Only the owner (authenticated as a Firebase user with the same `ownerId`) can browse past versions. Three CLI/API endpoints power this:
 
-- **`listPresentationVersions(shareId)`** → summary of every version (title, createdAt, createdBy, file count, total bytes).
-- **`getPresentationVersion(shareId, version)`** → the manifest for that exact version (list of files with hashes + content types).
+- **`listPresentationVersions(presentationId)`** → summary of every version (title, createdAt, createdBy, file count, total bytes).
+- **`getPresentationVersion(presentationId, version)`** → the manifest for that exact version (list of files with hashes + content types).
 - Serving a specific historical version as HTML is not exposed publicly — the owner can inspect manifests + hashes but rendering a past version in the dashboard would need a signed internal URL that we haven't wired yet.
 
 The external HTTP path is authenticated via the same `presentations:read` scope your other read calls use — but ownership is still enforced on top, so a valid read key from a *different* user on the same org won't see versions of presentations they don't own.
@@ -65,5 +65,5 @@ The external HTTP path is authenticated via the same `presentations:read` scope 
 
 ## Operational notes
 
-- Storage grows with history — deleting old versions is not yet supported. If a presentation has sensitive drafts, don't assume deleting the dashboard doc cleans up old blobs; archive it and reach out to support for a hard purge.
-- There's no "rollback" command today — to revert, just re-upload the older content as a new version. The `currentVersion` pointer advances; it never decreases.
+- Storage grows with history — deleting individual old versions is not yet supported. `slideless delete <id>` removes every version and every blob for the deck atomically.
+- There's no "rollback" command today — to revert, just push the older content as a new version. The `currentVersion` pointer advances; it never decreases.

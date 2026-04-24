@@ -8,7 +8,7 @@ description: "Per-recipient links with independent view counters and granular re
 A **share token** is the secret embedded in a share URL:
 
 ```
-https://app.slideless.ai/share/{shareId}?token={shareToken}
+https://app.slideless.ai/share/{presentationId}?token={shareToken}
 ```
 
 A presentation can have many tokens. Each one:
@@ -30,10 +30,14 @@ A single presentation can be shared with many people, each via their own token, 
 | Run an A/B test on send copy | Different tokens in different emails, compare `lastAccessedAt` |
 | Public version + private version | One default token, one revocable "guest" token |
 
-The `default` token is created automatically on upload (`slideless share` returns its `tokenId` and full URL). Add more from the dashboard's presentation detail page. To inspect every token's view counter from the terminal, run `slideless get <shareId>`.
+A fresh push does not create any tokens — the deck starts unshared. Run `slideless share <presentationId>` to mint the first token (named `default` unless you pass `--name`). Add more by calling `slideless share <presentationId> --name <label>` again, or from the dashboard's presentation detail page. To inspect every token's view counter from the terminal, run `slideless get <presentationId>`.
 
 <Info>
-  **Emailing a deck mints one token per recipient automatically.** When you use [`slideless share-email`](/guides/sharing-via-email), the dashboard's "Share via email" modal, or the `share-presentation-email` plugin skill, each recipient gets their own named token (`name = recipient email`). You don't have to call `add-token` manually — per-recipient opens show up under that recipient's address in the Share links table.
+  **Share tokens are view-only.** They grant read access to the rendered deck at the URL. For editors (someone who should push new versions), see [Collaboration](/concepts/collaboration) and the `invite` command.
+</Info>
+
+<Info>
+  **Emailing a deck mints one token per recipient automatically.** When you use [`slideless share-email`](/guides/sharing-via-email), the dashboard's "Share via email" modal, or the `share-presentation-email` plugin skill, each recipient gets their own named token (`name = recipient email`). You don't have to call `slideless share` manually for each one — per-recipient opens show up under that recipient's address in the Share links table.
 </Info>
 
 ## Lifecycle
@@ -66,10 +70,10 @@ Revocation is permanent in v1 — there is no un-revoke. Revoking one token neve
 
 ```bash
 # Freeze this recipient on v3 — later updates don't reach them.
-slideless pin <shareId> <tokenId> --to-version 3
+slideless pin <presentationId> <tokenId> --to-version 3
 
 # Put them back on auto-update.
-slideless pin <shareId> <tokenId> --latest
+slideless pin <presentationId> <tokenId> --latest
 ```
 
 Recipients **cannot see past versions by URL manipulation** — there is no `?v=N` query parameter. A `latest` token sees the current version; a `pinned` token sees exactly that version. Only the owner, from the dashboard, can browse history. See [Versioning](/concepts/versioning) for why.
@@ -80,7 +84,7 @@ Share tokens are designed to be safe to put in URLs:
 
 - **384 bits of entropy** — far beyond brute-forcing. No rate limit needed for this reason alone.
 - **Constant-time comparison** — token validation iterates all tokens and uses bitwise XOR to prevent timing attacks. An attacker can't infer how close their guess was from the response time.
-- **Generic 404s** — if the token is wrong, the share ID doesn't exist, or the presentation is archived, you get the same `404` response. There's no way to enumerate share IDs by probing.
+- **Generic 404s** — if the token is wrong or the share ID doesn't exist, you get the same `404` response. There's no way to enumerate share IDs by probing.
 
 ## What a token does NOT do
 

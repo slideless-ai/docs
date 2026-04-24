@@ -4,7 +4,7 @@ description: "Pin a share token to a specific version or put it back on auto-fol
 ---
 
 <Note>
-For most use cases, the [`slideless` CLI](/cli/overview) is easier. The CLI command is `slideless pin <shareId> <tokenId> --to-version <N>` or `--latest`.
+For most use cases, the [`slideless` CLI](/cli/overview) is easier. The CLI command is `slideless pin <presentationId> <tokenId> --to-version <N>` or `--latest`.
 </Note>
 
 ## Endpoint
@@ -26,7 +26,7 @@ Required scope: `presentations:write`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `shareId` | string | yes | Presentation the token belongs to |
+| `presentationId` | string | yes | Presentation the token belongs to |
 | `tokenId` | string | yes | Token to change |
 | `versionMode` | object | yes | Either `{"type":"latest"}` or `{"type":"pinned","version":N}` |
 
@@ -39,7 +39,7 @@ Example — pin:
 
 ```json
 {
-  "shareId": "0192f1c3-...",
+  "presentationId": "0192f1c3-...",
   "tokenId": "0192f1c3-abcd-...",
   "versionMode": { "type": "pinned", "version": 3 }
 }
@@ -49,7 +49,7 @@ Example — unpin (follow latest):
 
 ```json
 {
-  "shareId": "0192f1c3-...",
+  "presentationId": "0192f1c3-...",
   "tokenId": "0192f1c3-abcd-...",
   "versionMode": { "type": "latest" }
 }
@@ -74,7 +74,7 @@ Example — unpin (follow latest):
 | `400` | `invalid-argument` | Bad `versionMode` shape, `version` > `currentVersion`, or missing fields |
 | `401` | `unauthenticated` | Missing/invalid API key |
 | `403` | `permission-denied` | Key lacks `presentations:write`, or not the presentation's owner |
-| `404` | `not-found` | `shareId` or `tokenId` doesn't exist |
+| `404` | `not-found` | `presentationId` or `tokenId` doesn't exist |
 | `410` | `revoked` | Cannot modify a revoked token |
 
 ## Concept reminder

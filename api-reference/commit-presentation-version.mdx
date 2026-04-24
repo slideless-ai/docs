@@ -4,7 +4,7 @@ description: "Step 3 of the three-step upload flow. Send the manifest, the backe
 ---
 
 <Note>
-For most use cases, the [`slideless` CLI](/cli/overview) handles the upload flow end-to-end. The CLI command is `slideless share <path>` or `slideless update <shareId> <path>`.
+For most use cases, the [`slideless` CLI](/cli/overview) handles the upload flow end-to-end. The CLI command is `slideless push [path] --title "..."` (the CLI reads `slideless.json` to decide new-vs-update).
 </Note>
 
 ## Endpoint
@@ -26,8 +26,8 @@ Required scope: `presentations:write`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `shareId` | string | one of | Existing presentation — bumps `currentVersion` and writes a new manifest. |
-| `sessionId` | string | one of | Session from `precheckAssets` — creates a new presentation on this session's reserved shareId. |
+| `presentationId` | string | one of | Existing presentation — bumps `currentVersion` and writes a new manifest. |
+| `sessionId` | string | one of | Session from `precheckAssets` — creates a new presentation on this session's reserved presentationId. |
 | `title` | string | required on new, optional on update | 1–255 chars. On update, omit or empty to preserve the existing title. |
 | `entryPath` | string | yes | The entry HTML file within `files[]`. Must be present. |
 | `files` | array | yes | Every file in the deck. Each entry: `{ path, sha256, size, contentType }`. |
@@ -55,7 +55,7 @@ Example (update):
 
 ```json
 {
-  "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+  "presentationId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
   "title": "",
   "entryPath": "index.html",
   "files": [ ... ]
@@ -70,7 +70,7 @@ Example (update):
 {
   "success": true,
   "data": {
-    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+    "presentationId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
     "version": 1,
     "tokenId": "019dba77-559a-711a-adae-dd00beb88a79",
     "token": "XZv8oWqdn6gUPtmrLSuA0MQ0Zdwj_lODsGXo7btAiymg5z0UmDHDc0_9Kbd5y95a",
@@ -81,13 +81,13 @@ Example (update):
 
 A default token named `"default"` is created with `versionMode: {type: 'latest'}`. It's the only token — mint more with [`addPresentationToken`](/api-reference/add-presentation-token).
 
-### Update (on `shareId`)
+### Update (on `presentationId`)
 
 ```json
 {
   "success": true,
   "data": {
-    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+    "presentationId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
     "version": 3,
     "shareUrl": "https://app.slideless.ai/share/019dba77-.../?token=..."
   }
@@ -124,9 +124,9 @@ See [Presentations](/concepts/presentations#size-and-file-count-caps) for the fu
 | `400` | `blobs-missing` | One or more referenced sha256 hashes are not uploaded. Details include the missing set. |
 | `400` | `too-many-files` | `files.length` exceeds the plan's max file count |
 | `401` | `unauthenticated` | Missing/invalid API key |
-| `403` | `permission-denied` | Key lacks `presentations:write`, or shareId owned by another user |
-| `404` | `not-found` | `shareId` or `sessionId` doesn't exist |
-| `410` | `archived` | Presentation is archived |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or caller is not the owner or an active dev collaborator |
+| `404` | `not-found` | `presentationId` or `sessionId` doesn't exist |
+| `409` | `conflict` | Update's `expectedBaseVersion` lags the server. Response body includes `{ serverVersion }`. Pass `--force` to bypass. |
 | `413` | `payload-too-large` | Total bytes or individual file (HTML cap or per-asset cap) exceeded |
 
 ## Next

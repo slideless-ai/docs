@@ -7,7 +7,7 @@ description: "Folder layout, ignore rules, relative paths, and how Slideless ser
 
 A Slideless deck folder IS a tiny static website. The entry HTML lives at the root, assets live wherever you want, and the viewer serves them like any static server would. Relative paths in your HTML just work — `./hero.jpg`, `../styles.css`, `/assets/logo.png` all resolve the way you'd expect.
 
-Upload the folder with `slideless share ./deck`, and Slideless replicates the structure on its end.
+Upload the folder with `slideless push ./deck --title "..."`, and Slideless replicates the structure on its end.
 
 ## Folder layouts
 
@@ -28,7 +28,7 @@ deck/                      deck/                     deck/
 The entry file is `index.html` by default. Override with `--entry`:
 
 ```bash
-slideless share ./deck --title "My deck" --entry deck.html
+slideless push ./deck --title "My deck" --entry deck.html
 ```
 
 ## What gets uploaded
@@ -171,7 +171,7 @@ export function buildScene(container) {
   renderer.setSize(container.clientWidth, container.clientHeight);
   container.appendChild(renderer.domElement);
 
-  // Relative URL resolves to /share/{shareId}/three/model.glb — served from
+  // Relative URL resolves to /share/{presentationId}/three/model.glb — served from
   // Slideless with the correct content-type (model/gltf-binary) and caching.
   new GLTFLoader().load('./model.glb', (gltf) => {
     scene.add(gltf.scene);
@@ -183,7 +183,7 @@ export function buildScene(container) {
 Upload:
 
 ```bash
-slideless share ./deck --title "3D demo"
+slideless push ./deck --title "3D demo"
 ```
 
 That's it. The glTF loads from your Slideless CDN, three.js loads from unpkg.
