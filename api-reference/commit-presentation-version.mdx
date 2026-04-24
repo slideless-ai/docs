@@ -1,0 +1,136 @@
+---
+title: "POST /commitPresentationVersion"
+description: "Step 3 of the three-step upload flow. Send the manifest, the backend writes a new immutable version and bumps currentVersion."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) handles the upload flow end-to-end. The CLI command is `slideless share <path>` or `slideless update <shareId> <path>`.
+</Note>
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/commitPresentationVersion
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) |
+| `Content-Type` | `application/json` |
+
+Required scope: `presentations:write`.
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `shareId` | string | one of | Existing presentation — bumps `currentVersion` and writes a new manifest. |
+| `sessionId` | string | one of | Session from `precheckAssets` — creates a new presentation on this session's reserved shareId. |
+| `title` | string | required on new, optional on update | 1–255 chars. On update, omit or empty to preserve the existing title. |
+| `entryPath` | string | yes | The entry HTML file within `files[]`. Must be present. |
+| `files` | array | yes | Every file in the deck. Each entry: `{ path, sha256, size, contentType }`. |
+
+**Path rules:** `path` must be deck-root-relative, no `..` segments, no leading or trailing slash, no backslashes, no null bytes, ≤ 512 chars.
+
+**All hashes must exist:** the backend checks every `sha256` in `files[]` against the blob store. If any are missing, the call returns `400 blobs-missing` and the manifest is not written.
+
+Example (new presentation):
+
+```json
+{
+  "sessionId": "019dba77-...",
+  "title": "Q3 investor deck",
+  "entryPath": "index.html",
+  "files": [
+    { "path": "index.html",        "sha256": "...", "size": 12034,  "contentType": "text/html; charset=utf-8" },
+    { "path": "styles.css",        "sha256": "...", "size": 3120,   "contentType": "text/css; charset=utf-8" },
+    { "path": "images/hero.jpg",   "sha256": "...", "size": 824100, "contentType": "image/jpeg" }
+  ]
+}
+```
+
+Example (update):
+
+```json
+{
+  "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+  "title": "",
+  "entryPath": "index.html",
+  "files": [ ... ]
+}
+```
+
+## Response (200)
+
+### New presentation (on `sessionId`)
+
+```json
+{
+  "success": true,
+  "data": {
+    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+    "version": 1,
+    "tokenId": "019dba77-559a-711a-adae-dd00beb88a79",
+    "token": "XZv8oWqdn6gUPtmrLSuA0MQ0Zdwj_lODsGXo7btAiymg5z0UmDHDc0_9Kbd5y95a",
+    "shareUrl": "https://app.slideless.ai/share/019dba77-.../?token=XZv8..."
+  }
+}
+```
+
+A default token named `"default"` is created with `versionMode: {type: 'latest'}`. It's the only token — mint more with [`addPresentationToken`](/api-reference/add-presentation-token).
+
+### Update (on `shareId`)
+
+```json
+{
+  "success": true,
+  "data": {
+    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+    "version": 3,
+    "shareUrl": "https://app.slideless.ai/share/019dba77-.../?token=..."
+  }
+}
+```
+
+`tokenId`/`token` omitted on update. `shareUrl` reuses a non-revoked token that follows `latest`. The bumped `currentVersion` is now `3`; existing tokens on `latest` see v3 on next load, pinned tokens stay frozen on their version.
+
+## Plan caps
+
+| Cap | Enforced |
+|---|---|
+| Max files in one manifest | 500 (free) – 10000 (enterprise) |
+| Max total bytes across all files | 250 MB (free) – 20 GB (enterprise) |
+| Max HTML file size | 10 MB (free) – 50 MB (enterprise) |
+| Max per-asset size | 50 MB (free) – 1 GB (enterprise) |
+
+See [Presentations](/concepts/presentations#size-and-file-count-caps) for the full table.
+
+## What happens on the backend
+
+1. Validate the request (auth, scopes, ownership, caps).
+2. Confirm every `sha256` in `files[]` exists in the blob store — 400 if any are missing.
+3. Compute `nextVersion = isNew ? 1 : currentVersion + 1`.
+4. Write `manifests/v{N}.json` to Cloud Storage (immutable).
+5. Create or update the `SharedPresentation` Firestore doc (`currentVersion` = nextVersion).
+6. Clean up the upload session (if applicable).
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| `400` | `invalid-argument` | Missing/bad field, bad path, duplicate path, `entryPath` not in `files[]` |
+| `400` | `blobs-missing` | One or more referenced sha256 hashes are not uploaded. Details include the missing set. |
+| `400` | `too-many-files` | `files.length` exceeds the plan's max file count |
+| `401` | `unauthenticated` | Missing/invalid API key |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or shareId owned by another user |
+| `404` | `not-found` | `shareId` or `sessionId` doesn't exist |
+| `410` | `archived` | Presentation is archived |
+| `413` | `payload-too-large` | Total bytes or individual file (HTML cap or per-asset cap) exceeded |
+
+## Next
+
+- **[POST /addPresentationToken](/api-reference/add-presentation-token)** — mint more named share tokens.
+- **[POST /setTokenVersionMode](/api-reference/set-token-version-mode)** — pin a token to a specific version.
+- **[GET /getSharedPresentationInfo](/api-reference/get-presentation)** — inspect every token's view count.

@@ -1,0 +1,88 @@
+---
+title: "POST /setTokenVersionMode"
+description: "Pin a share token to a specific version or put it back on auto-follow-latest. Owner-only."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier. The CLI command is `slideless pin <shareId> <tokenId> --to-version <N>` or `--latest`.
+</Note>
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/setTokenVersionMode
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) — must belong to the presentation's owner |
+| `Content-Type` | `application/json` |
+
+Required scope: `presentations:write`.
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `shareId` | string | yes | Presentation the token belongs to |
+| `tokenId` | string | yes | Token to change |
+| `versionMode` | object | yes | Either `{"type":"latest"}` or `{"type":"pinned","version":N}` |
+
+**Pinning rules:**
+- `version` must be a positive integer
+- `version` must not exceed `currentVersion`
+- The token must not be revoked
+
+Example — pin:
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "tokenId": "0192f1c3-abcd-...",
+  "versionMode": { "type": "pinned", "version": 3 }
+}
+```
+
+Example — unpin (follow latest):
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "tokenId": "0192f1c3-abcd-...",
+  "versionMode": { "type": "latest" }
+}
+```
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "versionMode": { "type": "pinned", "version": 3 }
+  }
+}
+```
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| `400` | `invalid-argument` | Bad `versionMode` shape, `version` > `currentVersion`, or missing fields |
+| `401` | `unauthenticated` | Missing/invalid API key |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or not the presentation's owner |
+| `404` | `not-found` | `shareId` or `tokenId` doesn't exist |
+| `410` | `revoked` | Cannot modify a revoked token |
+
+## Concept reminder
+
+Recipients cannot see past versions by URL manipulation — there is no `?v=N` query parameter. Pinning is how the owner decides what a specific recipient sees, and that decision can only narrow: a `latest` token sees the current version; a `pinned` token is frozen. See [Versioning](/concepts/versioning).
+
+## Next
+
+- **[CLI: slideless pin](/cli/commands#slideless-pin-shareid-tokenid)** — the terminal version.
+- **[Versioning](/concepts/versioning)** — concept deep dive.
+- **[GET /getSharedPresentationInfo](/api-reference/get-presentation)** — inspect every token's current `versionMode`.

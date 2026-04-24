@@ -1,15 +1,15 @@
 ---
 title: "Update a presentation in place"
-description: "Replace the HTML behind an existing share URL with one CLI command. Same URL, new content, view counts preserved."
+description: "Replace the content behind an existing share URL with one CLI command. Same URL, new content, view counts preserved, unchanged assets deduplicated."
 ---
 
 ## When to use this
 
-You've already shared a deck. You want to change the content (fix a typo, update a number, add a slide) without:
+You've already shared a deck. You want to change the content (fix a typo, update a number, add a slide, swap an image) without:
 
 - Sending a new URL to everyone
 - Losing the view counts and per-token analytics
-- Breaking links you've already pasted in Slack, emails, or docs
+- Re-uploading assets that haven't changed
 
 This is what `slideless update` is for.
 
@@ -17,29 +17,45 @@ This is what `slideless update` is for.
 
 | Stays the same | What changes |
 |---|---|
-| `shareId` | `version` (auto-bumps by 1) |
+| `shareId` | `currentVersion` (auto-bumps by 1; history is kept) |
 | Every share token (same URLs) | `updatedAt` |
-| `totalViews` and per-token `accessCount` | The HTML content |
+| `totalViews` and per-token `accessCount` | The deck contents |
 | Owner, organization, title (unless you pass a new one) | |
+| Tokens pinned to an earlier version (they stay pinned) | Tokens on `latest` auto-follow |
 
 ## Update in one command
 
 ```bash
-slideless update <shareId> ./deck-v2.html
+# Folder
+slideless update <shareId> ./my-deck
+
+# Single file
+slideless update <shareId> ./deck.html
 ```
 
-Same URL. New content. The CLI prints the bumped version and the unchanged share URL.
+Same URL. New content. The CLI prints the bumped version, the unchanged share URL, and how many assets were re-uploaded vs deduplicated.
 
-To rename at the same time:
+```text
+✓ Updated to version 4
+
+  Share ID:        0192f1c3-...
+  Version:         4
+  Assets uploaded: 1
+  Assets deduped:  12
+  Total bytes:     194 MB
+  Share URL:       https://app.slideless.ai/share/0192f1c3-...?token=...
+```
+
+Rename at the same time:
 
 ```bash
-slideless update <shareId> ./deck-v2.html --title "Q4 Pitch v2"
+slideless update <shareId> ./my-deck --title "Q4 Pitch v2"
 ```
 
 For machine-readable output:
 
 ```bash
-slideless update <shareId> ./deck-v2.html --json
+slideless update <shareId> ./my-deck --json
 ```
 
 ```json
@@ -47,11 +63,42 @@ slideless update <shareId> ./deck-v2.html --json
   "success": true,
   "data": {
     "shareId": "0192f1c3-...",
-    "version": 2,
-    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=..."
+    "version": 4,
+    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=...",
+    "assetsUploaded": 1,
+    "assetsDeduped": 12,
+    "totalBytes": 194194304
   }
 }
 ```
+
+## Content-addressed dedup
+
+Updates are cheap. The CLI hashes every file in the new deck, asks the backend which hashes it already has, and uploads only the missing ones. If you swap one image on a 200 MB deck, the network transfer is ~the size of that one image, not 200 MB.
+
+```
+# First upload (cold cache)
+  Assets uploaded: 13
+  Assets deduped:  0
+
+# Second upload (same deck, nothing changed)
+  Assets uploaded: 0
+  Assets deduped:  13
+
+# Third upload (one image swapped)
+  Assets uploaded: 1
+  Assets deduped:  12
+```
+
+## Pin before you update
+
+If you shipped v3 to a specific person and want to make sure they keep seeing v3 no matter what you push next, **pin their token first**:
+
+```bash
+slideless pin <shareId> <tokenId> --to-version 3
+```
+
+Then update freely. The pinned recipient stays on v3. Unpin them later with `--latest` if you want them back on auto-update. See [Versioning](/concepts/versioning).
 
 ## Walkthrough
 
@@ -74,19 +121,18 @@ The shareId is also embedded in the share URL: `https://app.slideless.ai/share/{
 ### 2. Re-publish
 
 ```bash
-slideless update 0192f1c3-... ./deck-v2.html
+slideless update 0192f1c3-... ./my-deck
 ```
-
-Output includes the bumped `version` and the same `shareUrl`.
 
 ### 3. Notify recipients (optional)
 
-Recipients see the new content the next time they reload. If the deck is open in their browser already, they need to refresh. The URL itself doesn't change.
+Recipients on `latest` tokens see the new content next reload. Pinned recipients stay on their version. The URL never changes.
 
 ## What can't be updated
 
-- **Archived presentations.** Once archived, no updates accepted (CLI returns `code: "archived"`).
+- **Archived presentations.** Once archived, no updates accepted (`code: "archived"`).
 - **Presentations you don't own.** The CLI returns `code: "permission-denied"`. The API key's user must match the owner.
+- **A version that already exists.** Versions are append-only; you can't re-upload as v2 if v3 has already been committed. The next version is always `currentVersion + 1`.
 
 ## Errors
 
@@ -96,35 +142,23 @@ Recipients see the new content the next time they reload. If the deck is open in
 | `permission-denied` | Not the owner, or missing `presentations:write` scope |
 | `not-found` | No presentation with that shareId |
 | `archived` | Presentation has been archived |
-| `payload-too-large` | HTML exceeds 10 MB |
+| `payload-too-large` | File or total deck exceeds the plan cap |
+| `blobs-missing` | Manifest references an unuploaded hash (CLI handles this automatically — only happens with custom clients) |
 
 ## Operational patterns
 
 **CI on tag push.** A GitHub Action that re-publishes a release deck whenever you push a new tag. Same URL on the website, fresh content every release:
 
 ```bash
-slideless update "$SLIDELESS_SHARE_ID" ./dist/release-deck.html --json
+slideless update "$SLIDELESS_SHARE_ID" ./dist/release-deck --json --strict
 ```
 
-**Daily cron.** A Cloud Scheduler job that regenerates a metrics deck every morning and re-publishes it.
+**Daily cron.** A scheduled job that regenerates a metrics deck every morning and re-publishes it. If the graphs are the only thing changing, dedup means almost nothing re-uploads.
 
-**Editorial workflow.** Author drafts, reviewer comments, author re-publishes. The shared URL given to stakeholders never changes; the content under it improves.
-
-## Without the CLI
-
-If you can't run the CLI, hit the API directly. Full reference: [`POST /updateSharedPresentation`](/api-reference/update-presentation).
-
-```bash
-SHARE_ID="0192f1c3-..."
-
-curl -sS -X POST \
-  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
-  -H "Content-Type: application/json" \
-  --data-binary @<(jq -Rs --arg id "$SHARE_ID" '{shareId: $id, html: .}' < ./deck-v2.html) \
-  https://europe-west1-slideless-ai.cloudfunctions.net/updateSharedPresentation
-```
+**Editorial workflow.** Author drafts, reviewer comments, author re-publishes. The shared URL given to stakeholders never changes. Pin the stakeholder's token before the reviewer round so mid-review fixes don't leak out.
 
 ## Next
 
-- **[Share tokens concept](/concepts/share-tokens)** — Why view counts survive updates.
-- **[Use with Claude](/guides/with-claude)** — Run this loop interactively with the `update-presentation` skill.
+- **[Versioning](/concepts/versioning)** — append-only history + per-token pinning.
+- **[Use with Claude](/guides/with-claude)** — run this loop interactively with the `update-presentation` skill.
+- **[CLI command reference](/cli/commands)** — every command and flag.

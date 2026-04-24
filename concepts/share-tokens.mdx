@@ -16,6 +16,7 @@ A presentation can have many tokens. Each one:
 - Is independently revocable
 - Tracks its own view count and `lastAccessedAt`
 - Has a name (e.g. `default`, `John Doe`, `q4-board`) for human readability
+- Has a **[version mode](/concepts/versioning)** — `latest` (follows updates) or `pinned` to a specific version N
 - Is generated server-side as **48 random bytes** (384 bits of entropy), encoded base64url
 
 ## Why multiple tokens
@@ -51,14 +52,27 @@ Revocation is permanent in v1 — there is no un-revoke. Revoking one token neve
 
 | Field | Type | Description |
 |---|---|---|
-| `tokenId` | UUIDv7 string | The internal ID (stable, used for revocation) |
+| `tokenId` | UUIDv7 string | The internal ID (stable, used for revocation + pinning) |
 | `token` | base64url string | The actual secret in the URL — 384 bits of entropy |
 | `name` | string | Human-readable label (e.g. `"default"`, `"John at Acme"`) |
+| `versionMode` | `{type:'latest'}` or `{type:'pinned', version:N}` | Which version this token resolves to. See [Versioning](/concepts/versioning). |
 | `createdAt`, `createdBy` | timestamp / userId | When and by whom |
 | `revoked` | boolean | If `true`, the share URL returns 403 |
 | `revokedAt`, `revokedBy` | timestamp / userId / null | Set on revocation |
 | `lastAccessedAt` | timestamp / null | Most recent view |
 | `accessCount` | number | Total views via this token |
+
+## Pin a token to a specific version
+
+```bash
+# Freeze this recipient on v3 — later updates don't reach them.
+slideless pin <shareId> <tokenId> --to-version 3
+
+# Put them back on auto-update.
+slideless pin <shareId> <tokenId> --latest
+```
+
+Recipients **cannot see past versions by URL manipulation** — there is no `?v=N` query parameter. A `latest` token sees the current version; a `pinned` token sees exactly that version. Only the owner, from the dashboard, can browse history. See [Versioning](/concepts/versioning) for why.
 
 ## Security guarantees
 

@@ -7,10 +7,10 @@ description: "Generate, share, and update presentations from Claude Code via the
 
 The [`slideless-ai/plugin`](https://github.com/slideless-ai/plugin) is an [Open Plugin v1](https://github.com/vercel-labs/open-plugin-spec)-conformant plugin that lets Claude Code (and any other compatible agent) do the following:
 
-1. **Generate** a self-contained HTML presentation in a curated style.
-2. **Share** it and get back a public URL to send to anyone.
-3. **Update** an existing share in place. Same URL, new content.
-4. **List** and **get** your shared presentations.
+1. **Generate** an HTML presentation in a curated style — a single self-contained file, or a folder with sibling assets.
+2. **Share** it (folder or single file) and get back a public URL to send to anyone.
+3. **Update** an existing share in place. Same URL, new content, unchanged assets deduped.
+4. **List** and **get** your shared presentations (with per-token view counts and version info).
 5. **Export** to PDF locally if you need a file artifact.
 
 The skills that publish, update, list, or fetch presentations all delegate to the [`slideless` CLI](/cli/overview). The CLI is the canonical interface; the skills wrap it so Claude can call it cleanly. Publish-side skills require the CLI installed and a profile saved via `slideless login`.
@@ -64,27 +64,27 @@ Two skills, used together:
 > Style: full-deck (cinematic) or slim-tabbed (workshop)
 ```
 
-Claude writes a self-contained HTML file (typically a few hundred KB) into your working directory. Then:
+Claude writes either a single self-contained HTML file or a deck folder (if the content needs images, video, or 3D assets). Then:
 
 ```
 /skill share-presentation
-> html_path: ./q4-results.html
+> source_path: ./q4-results      (folder) or ./q4-results.html (single file)
 > title: Q4 Results
 ```
 
-The skill runs `slideless share ./q4-results.html --title "Q4 Results" --json` and prints the returned `shareUrl`. Send the URL to anyone.
+The skill runs `slideless share <source_path> --title "Q4 Results" --json` and prints the returned `shareUrl`. Send the URL to anyone.
 
 ## Step 4 — Iterate and re-publish
 
-Tweaks to the deck? Re-run the generator (or edit the HTML directly), then:
+Tweaks to the deck? Re-run the generator (or edit the source directly), then:
 
 ```
 /skill update-presentation
 > share_id: <the shareId from the previous step>
-> html_path: ./q4-results.html
+> source_path: ./q4-results
 ```
 
-Runs `slideless update <shareId> ./q4-results.html`. The URL stays the same. Recipients refresh and see the new content. The view counter keeps incrementing from where it was.
+Runs `slideless update <shareId> ./q4-results`. The URL stays the same, recipients refresh and see the new content, and the view counter keeps incrementing from where it was. Unchanged assets (images, video, JS bundles) are deduplicated — only modified files re-upload.
 
 ## Step 5 — List and inspect
 
@@ -123,5 +123,8 @@ See the [Plugin Skills overview](/skills/overview) for the canonical list with d
 | `command not found: slideless` | CLI not installed | `npm install -g slideless` |
 | `unauthenticated` | Profile not saved or key revoked | Re-run `setup-slideless`, or `slideless auth login-request --email <you>` + `login-complete` |
 | `permission-denied` on share | Key missing `presentations:write` scope | Re-run `setup-slideless` (OTP-minted keys always have both scopes), or create a new dashboard key with the right scope and `slideless login` |
-| `payload-too-large` | HTML > 10 MB | Slim down: inline fewer base64 images, drop unused JS |
+| `payload-too-large` | File or total deck exceeds the plan cap (free: 50 MB/file, 250 MB total) | Compress videos, drop unused assets, or upgrade the plan |
+| `blobs-missing` | Manifest references a hash not in the store | Should not happen in normal use — re-run `share-presentation` |
+| `too-many-files` | Manifest exceeds plan max file count | Trim the folder (`.slidelessignore`, drop unused files) |
+| Parent-escape error (static scan) | HTML references `../outside/foo.jpg` | Move the asset into the deck folder or use a CDN URL |
 | `404` when opening share URL | Token typo, presentation archived, or share ID wrong | Re-run `share-presentation` to get a fresh URL |

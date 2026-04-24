@@ -115,13 +115,29 @@ slideless logout personal
 
 ### `slideless share <path>`
 
-Upload an HTML file as a public presentation, or update an existing one in place with `--update <shareId>`.
+Upload a deck as a public presentation. `<path>` can be either a **folder** (with an `index.html` and any sibling assets) or a **single `.html` file**. Use `--update <shareId>` to replace an existing share in place.
 
 ```bash
+# Folder mode
+slideless share ./my-deck --title "Q4 Pitch"
+slideless share ./my-deck --title "Q4 Pitch" --entry custom.html
+slideless share ./my-deck --title "Q4 Pitch" --update 01a3b...
+slideless share ./my-deck --title "Q4 Pitch" --strict    # fail on unresolved refs
+
+# Single-file mode (no folder walk)
 slideless share ./deck.html --title "Q4 Pitch"
-slideless share ./deck.html --title "Q4 Pitch" --update 01a3b...
-cat deck.html | slideless share - --title "Piped demo"
 ```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--title <title>` | **Required.** Display title shown in the dashboard. |
+| `--entry <filename>` | Folder mode only. Entry HTML file name. Default: `index.html`. |
+| `--update <shareId>` | Update an existing presentation in place. |
+| `--strict` | Escalate static-scan warnings (missing relative refs) to hard errors. |
+
+The CLI walks the folder, hashes every file, uploads only the files that aren't already in the backend's content-addressed store, and commits a manifest. Before uploading it runs a static scan of your HTML + CSS for missing-file warnings and **parent-directory escape errors** (`../outside/foo.jpg` is always a hard error — decks must be self-contained).
 
 **JSON output (create):**
 ```json
@@ -131,7 +147,11 @@ cat deck.html | slideless share - --title "Piped demo"
     "shareId": "01a3b...",
     "tokenId": "01a3c...",
     "token": "...",
-    "shareUrl": "https://..."
+    "version": 1,
+    "shareUrl": "https://...",
+    "assetsUploaded": 5,
+    "assetsDeduped": 0,
+    "totalBytes": 42000
   }
 }
 ```
@@ -140,9 +160,18 @@ cat deck.html | slideless share - --title "Piped demo"
 ```json
 {
   "success": true,
-  "data": { "shareId": "01a3b...", "version": 2, "shareUrl": "https://..." }
+  "data": {
+    "shareId": "01a3b...",
+    "version": 2,
+    "shareUrl": "https://...",
+    "assetsUploaded": 1,
+    "assetsDeduped": 4,
+    "totalBytes": 41200
+  }
 }
 ```
+
+See [Working with assets](/guides/working-with-assets) for more on folder layout, ignore rules, and asset resolution.
 
 ### `slideless share-email <shareId>`
 
@@ -210,12 +239,17 @@ See the [share-via-email guide](/guides/sharing-via-email) for worked examples.
 
 ### `slideless update <shareId> <path>`
 
-Replace the HTML at an existing share. Same URL, new content, version bumps, view count preserved.
+Replace the deck at an existing share. Same URL, new content, version bumps, view count preserved. `<path>` takes a folder or a single `.html` file, same as `share`. Unchanged files are deduplicated — only modified files re-upload.
 
 ```bash
-slideless update 01a3b... ./deck-v2.html
-slideless update 01a3b... ./deck-v2.html --title "Q4 Pitch — v2"
+slideless update 01a3b... ./my-deck                       # folder
+slideless update 01a3b... ./my-deck --title "Q4 Pitch v2"
+slideless update 01a3b... ./my-deck --entry custom.html
+slideless update 01a3b... ./my-deck --strict
+slideless update 01a3b... ./deck.html                     # single file
 ```
+
+If `--title` is omitted, the existing title is preserved.
 
 ### `slideless list`
 
@@ -245,6 +279,25 @@ slideless token add 01a3b... --name "Acme Corp" --json
 ```
 
 The `token` command is a parent namespace — future subcommands (`list`, `revoke`, …) will slot in alongside `add`.
+
+### `slideless pin <shareId> <tokenId>`
+
+Change a share token's version mode — pin it to a specific version or put it back on auto-follow-latest. Only the presentation owner can pin.
+
+```bash
+slideless pin 01a3b... 01a3c... --to-version 3    # freeze this recipient on v3
+slideless pin 01a3b... 01a3c... --latest          # auto-follow future updates
+slideless pin 01a3b... 01a3c... --to-version 3 --json
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--to-version <N>` | Pin to version N. Mutually exclusive with `--latest`. |
+| `--latest` | Follow the current version. Mutually exclusive with `--to-version`. |
+
+Recipients cannot change their own version — there is no query-param override. Use `slideless get <shareId>` to inspect every token's current `versionMode`. See [Versioning](/concepts/versioning).
 
 ### `slideless revoke <shareId>`
 
@@ -305,7 +358,11 @@ Common `code` values (share / presentations):
 | `permission-denied` | Key valid but lacks the required scope, or not the resource owner |
 | `not-found` | The `shareId` doesn't exist |
 | `archived` | Tried to update a presentation that's been archived |
-| `payload-too-large` | HTML exceeds the 10 MB limit |
+| `payload-too-large` | File or total deck size exceeds the plan cap |
+| `hash-mismatch` | Upload bytes don't match declared sha256 (should never reach the user — internal error if it does) |
+| `blobs-missing` | `commit` was called with a manifest referencing a hash that wasn't uploaded |
+| `too-many-files` | Manifest exceeds the plan's max file count |
+| `invalid-argument` | Request body is malformed (bad path, missing field, etc.) |
 | `network-error` | Couldn't reach the backend |
 | `internal` | Backend 5xx |
 

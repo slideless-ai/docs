@@ -97,7 +97,7 @@ curl -sS -X POST \
 
 ## Irreversibility
 
-Archiving a presentation is irreversible. To re-share the same content, upload it again via [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) — the new share gets a brand-new `shareId` and URL.
+Archiving a presentation is irreversible. To re-share the same content, upload it again via the [three-step upload flow](/api-reference/precheck-assets) (or simply `slideless share <path>`) — the new share gets a brand-new `shareId` and URL.
 
 Revoking a single token is also final for that token. Mint a replacement recipient link via [`POST /addPresentationToken`](/api-reference/add-presentation-token).
 

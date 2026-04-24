@@ -1,87 +1,85 @@
 ---
 title: "Presentations"
-description: "The lifecycle of a Slideless presentation: creation, updates, archival, and view tracking"
+description: "A presentation is an HTML deck — a single file or a folder with sibling assets — with share tokens, version history, and view tracking."
 ---
 
-## What a presentation is
+## What it is
 
 A **presentation** is a Slideless record that wraps:
 
-- A single HTML file (≤ 10 MB) stored in private cloud storage
-- One or more **share tokens** (see [Share tokens](/concepts/share-tokens))
-- Metadata: title, version, owner, timestamps, view counters
+- The deck itself — either a **single self-contained HTML file** or a **folder** with an `index.html` and any sibling assets (images, video, 3D models, CSS, JS, shaders, data files).
+- One or more **share tokens** (see [Share tokens](/concepts/share-tokens)), each of which resolves to a specific version or follows the latest.
+- An append-only **version history** (see [Versioning](/concepts/versioning)) — every update creates a new immutable version, nothing is overwritten.
+- Metadata: title, owner, timestamps, view counters.
 
-You create a presentation by running `slideless share <path>` or by creating one in the dashboard. Under the hood the CLI calls the [`uploadSharedPresentation`](/api-reference/upload-presentation) endpoint.
+Presentations live under the organization that the uploading API key belongs to.
 
-## Anatomy
+## Folder vs single file
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUIDv7 string | The `shareId` — appears in every share URL |
-| `ownerId` | string | The Slideless user who created it |
-| `organizationId` | string | The org context (in v1, every user has one personal org) |
-| `apiKeyId` | string \| null | Which API key created it (null if uploaded via dashboard) |
-| `title` | string | Display title — visible in the dashboard, not in the share URL |
-| `version` | number | Starts at `1`, auto-bumps on every successful update |
-| `createdAt`, `updatedAt`, `expiresAt` | timestamps | `expiresAt` is null in v1 |
-| `archived` | boolean | Soft-delete flag — archived presentations 404 to viewers |
-| `archivedAt`, `archivedBy` | timestamp / userId | Set when archived |
-| `tokens` | map | Keyed by `tokenId` — see [Share tokens](/concepts/share-tokens) |
-| `totalViews` | number | Sum across all tokens (denormalized for fast list rendering) |
-| `lastViewedAt` | timestamp | Most recent view across any token |
+Slideless accepts two shapes, same URL, same backend:
+
+**Single HTML file** — maximum portability, everything inline. Use for text-heavy decks, or when you're embedding images as base64 anyway.
+
+```bash
+slideless share ./deck.html --title "My talk"
+```
+
+**Folder** — any layout, no forced `/assets/` convention. Use when you have images, video, 3D models, shaders, or separate CSS/JS bundles. Relative paths inside the HTML (`./hero.jpg`, `./images/logo.png`, `./three/scene.js`) resolve exactly like a static webserver.
+
+```
+deck/
+├── index.html          (entry file; override with --entry)
+├── styles.css
+├── images/
+│   └── hero.jpg
+└── three/
+    ├── scene.js
+    └── model.glb
+```
+
+```bash
+slideless share ./deck --title "My talk"
+```
+
+The CLI walks the folder and uploads every file that isn't in the default ignore list (`.git/`, `node_modules/`, `.DS_Store`, `*.log`, etc.) plus whatever a `.slidelessignore` file at the folder root excludes. Parent-directory references (`<img src="../outside/foo.jpg">`) are rejected at upload time — decks must be self-contained within their root.
+
+See [Working with assets](/guides/working-with-assets) for a deep dive.
+
+## Size and file-count caps
+
+Caps depend on your plan:
+
+| Tier | Max single file | Max total deck | Max file count | Max HTML file |
+|---|---|---|---|---|
+| Free | 50 MB | 250 MB | 500 | 10 MB |
+| Starter | 100 MB | 500 MB | 1000 | 10 MB |
+| Pro | 250 MB | 2 GB | 2000 | 20 MB |
+| Business | 500 MB | 5 GB | 5000 | 20 MB |
+| Enterprise | 1 GB | 20 GB | 10000 | 50 MB |
+
+Uploading content that exceeds any cap returns `413 payload-too-large`. External CDN references (`https://unpkg.com/...`, `https://fonts.googleapis.com/...`) don't count against your quota — only uploaded bytes do.
+
+## Content-addressed storage and deduplication
+
+Under the hood, each file is stored at a path derived from its SHA-256 hash. When you update a deck, only the files whose contents actually changed re-upload — everything else dedupes. A five-version deck with one changed image across versions costs you ~1.1× the size, not 5×.
+
+The CLI reports dedup hits after every upload:
+
+```
+Assets uploaded: 1
+Assets deduped:  12
+```
 
 ## Lifecycle
 
-```
-created (version=1, totalViews=0)
-  ↓
-updated×N (version=2, 3, …; HTML replaced; URL unchanged; totalViews preserved)
-  ↓
-archived (viewers see 404; can still inspect from the dashboard for audit)
-```
+1. **Upload** via `slideless share <path>` — creates a new presentation, mints a default token whose `versionMode` is `latest`.
+2. **View**: anyone with the token URL renders the deck in a sandboxed iframe; view count increments server-side.
+3. **Update** via `slideless update <shareId> <path>` — creates a new immutable version, bumps `currentVersion`, preserves tokens + view counters, dedupes unchanged files.
+4. **Pin** via `slideless pin <shareId> <tokenId> --to-version <N>` — freeze a specific recipient on a specific version so later updates don't affect their view.
+5. **Revoke** from the dashboard — individual tokens return 403, or archive the whole presentation (all tokens dead, cannot un-archive).
 
-| Transition | How |
-|---|---|
-| Create | `slideless share ./deck.html --title "..."` (or "New presentation" in the dashboard) |
-| Update | `slideless update <shareId> ./deck.html` (or "Update" in the dashboard) |
-| Archive | "Archive" in the dashboard. Soft-delete, all share links stop resolving |
+## Not yet in v3
 
-Once archived, a presentation cannot be updated. There is no un-archive in v1.
-
-## Storage
-
-The HTML lives in a private GCS bucket (`slideless-ai-storage`) at the path:
-
-```
-shared_presentations/{shareId}/document.html
-```
-
-You never deal with this path directly. Slideless serves the HTML through the [`getSharedPresentation`](/api-reference/get-shared-presentation) endpoint after token validation, and the share viewer at `https://app.slideless.ai/share/{shareId}?token=...` wraps it with the viewer chrome.
-
-## Size limits
-
-| Resource | Limit | What happens if exceeded |
-|---|---|---|
-| Single HTML file | 10 MB | `413 payload-too-large` from upload/update |
-| Presentations per org | No hard cap in v1 | — |
-| API keys per org | 20 | New key creation fails |
-
-## What gets versioned
-
-When you update, the HTML is **replaced in place** — the previous version is overwritten. Slideless doesn't keep history in v1. The `version` counter increments so you can tell which iteration recipients are looking at, but you can't roll back to an older version through the API.
-
-If you need history, save your HTML in your own version control (git) and re-upload as needed.
-
-## What stays stable across updates
-
-- The `shareId` (and therefore every share URL)
-- All existing share tokens
-- The view counters (`totalViews` and per-token `accessCount`)
-- The owner and organization
-
-## What changes across updates
-
-- The HTML content
-- `version` (auto-increments)
-- `updatedAt`
-- `title` (only if you pass a new one)
+- Expiry dates (schema supports `expiresAt`, not exposed in CLI/dashboard yet).
+- Garbage-collection of unreferenced blobs (storage grows with history; manual cleanup not automated).
+- In-dashboard upload — v3 uploads are CLI-only. The dashboard handles browsing, previewing, token management, and archiving.

@@ -9,7 +9,7 @@ For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling 
 
 ## When to use
 
-You already have a `shareId` (from [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) or from the dashboard) and you want to email it to one or more recipients. The endpoint:
+You already have a `shareId` (from [`POST /commitPresentationVersion`](/api-reference/commit-presentation-version) or `slideless share`) and you want to email it to one or more recipients. The endpoint:
 
 - Mints a **unique named token per recipient** by default (recipient email becomes the token name), so per-recipient open tracking comes for free via the existing `accessCount` / `lastAccessedAt` fields on each `ShareToken`.
 - Sends a branded email via Resend (from `noreply@mail.slideless.ai`).
@@ -149,5 +149,5 @@ console.log(`Sent to ${body.data.summary.sent} of ${body.data.summary.total}`);
 ## See also
 
 - [Send a presentation by email (guide)](/guides/sharing-via-email)
-- [`POST /uploadSharedPresentation`](/api-reference/upload-presentation) — to create the `shareId` in the first place
+- [`POST /commitPresentationVersion`](/api-reference/commit-presentation-version) — to create the `shareId` in the first place
 - [Share tokens](/concepts/share-tokens) — the per-recipient token model

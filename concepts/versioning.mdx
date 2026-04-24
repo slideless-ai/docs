@@ -1,0 +1,69 @@
+---
+title: "Versioning"
+description: "Every update creates a new immutable version. Tokens resolve to either the latest version or a pinned one. Recipients can never see past versions by URL manipulation."
+---
+
+## Append-only history
+
+Every call to `slideless update` creates a new version of the presentation. Versions are numbered `1, 2, 3, …` starting from the initial upload. Each version is an **immutable manifest file** in Cloud Storage — `manifests/v1.json`, `manifests/v2.json`, etc.
+
+Nothing is overwritten. If you upload a bad v3 and fix it as v4, v3 is still on disk; the `currentVersion` pointer just moves forward.
+
+## How tokens see versions
+
+Every share token has a `versionMode`:
+
+```ts
+type TokenVersionMode =
+  | { type: 'latest' }                    // default
+  | { type: 'pinned'; version: number };
+```
+
+- **`latest`** (default on newly-minted tokens) — the recipient always sees the current version. Update the deck → their next page load reflects it.
+- **`pinned`** — the recipient is frozen on version `N`. Updates have no effect on them. Useful for investors / clients where you don't want a late edit to reach them.
+
+Change a token's mode from the terminal:
+
+```bash
+# Pin a specific recipient to version 3
+slideless pin <shareId> <tokenId> --to-version 3
+
+# Put them back on auto-update
+slideless pin <shareId> <tokenId> --latest
+```
+
+Or from the dashboard: open the presentation detail page, each token has a "pinned to v<N>" / "following latest" control.
+
+## Recipients cannot see past versions by URL
+
+This is load-bearing. There is **no `?v=N` query parameter** on the viewer. A recipient with a token pinned to v2 sees v2 — they cannot bump the URL to get v1 or v3. A recipient with a `latest` token sees whatever `currentVersion` is at the moment they load; they cannot back-navigate either.
+
+**Why:** you might update a deck because v3 had a typo, a wrong number, or confidential content you meant to remove. If recipients could walk the history at will, "fix by republishing" becomes a leak. Pinning is a one-way trust: the owner decides what a recipient can ever see, and that decision can only narrow — never widen beyond the owner's choice.
+
+## Browsing history from the dashboard
+
+Only the owner (authenticated as a Firebase user with the same `ownerId`) can browse past versions. Three CLI/API endpoints power this:
+
+- **`listPresentationVersions(shareId)`** → summary of every version (title, createdAt, createdBy, file count, total bytes).
+- **`getPresentationVersion(shareId, version)`** → the manifest for that exact version (list of files with hashes + content types).
+- Serving a specific historical version as HTML is not exposed publicly — the owner can inspect manifests + hashes but rendering a past version in the dashboard would need a signed internal URL that we haven't wired yet.
+
+The external HTTP path is authenticated via the same `presentations:read` scope your other read calls use — but ownership is still enforced on top, so a valid read key from a *different* user on the same org won't see versions of presentations they don't own.
+
+## What changes vs. what stays the same across versions
+
+| Across a version bump | What happens |
+|---|---|
+| Share URLs | Unchanged |
+| Token values | Unchanged |
+| View counts / `totalViews` | Preserved (never resets) |
+| `currentVersion` | Incremented |
+| `title` | Updated if the new upload supplied one; else preserved |
+| File contents | A new manifest lists the new set of hashes; unchanged files are deduped |
+| Pinned tokens | Unaffected — they keep resolving to their pinned version |
+| Latest-mode tokens | Auto-follow the bump on next load |
+
+## Operational notes
+
+- Storage grows with history — deleting old versions is not yet supported. If a presentation has sensitive drafts, don't assume deleting the dashboard doc cleans up old blobs; archive it and reach out to support for a hard purge.
+- There's no "rollback" command today — to revert, just re-upload the older content as a new version. The `currentVersion` pointer advances; it never decreases.

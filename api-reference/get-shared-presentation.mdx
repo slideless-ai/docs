@@ -1,52 +1,93 @@
 ---
-title: "GET /getSharedPresentation/{shareId}"
-description: "Public endpoint that returns the raw HTML of a shared presentation, gated by an unguessable token in the URL"
+title: "GET /getSharedPresentation/{shareId}/_t/{token}/..."
+description: "Public endpoint that serves the entry HTML and every asset of a shared presentation. Gated by an unguessable token in the URL path."
 ---
 
 <Note>
-This is a public, token-gated endpoint used internally by the share viewer. There is no CLI equivalent because, in normal use, you don't fetch raw HTML yourself, you give recipients the share URL (`https://app.slideless.ai/share/{shareId}?token=...`) and the viewer loads it. Read this page only if you're embedding a deck in a custom iframe.
+This is the public viewer endpoint. In normal use, you don't call it directly — you share the dashboard URL (`https://app.slideless.ai/share/{shareId}?token=...`) and the viewer loads this endpoint in an iframe. Read this page only if you're embedding a deck in a custom iframe or writing an integration.
 </Note>
 
-## When to use
+## URL structure
 
-Fetch the raw HTML of a presentation. This is the endpoint the Slideless share viewer uses internally to load the deck into its iframe.
+Two forms are supported:
 
-You rarely call this directly — most integrations use the [share URL](/concepts/share-tokens) (`https://app.slideless.ai/share/{shareId}?token=...`), which renders the deck inside the Slideless viewer chrome. Use this raw endpoint only if you're embedding a deck into a custom iframe and want to skip the viewer.
+### Path-token form (preferred for iframes)
 
-## Endpoint
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}/_t/{token}/{assetPath}
+```
+
+`assetPath` empty (or equal to `manifest.entryPath`) → serves the entry HTML.
+`assetPath` non-empty → serves that asset from the current version's manifest.
+
+The path-token shape matters: when the entry HTML contains `<img src="./hero.jpg">`, the browser resolves it relative to the iframe's URL. With the token in the path, the relative request naturally includes it too — so assets resolve without any cookie or URL-rewriting magic.
+
+### Flat form (curl-friendly)
 
 ```
 GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}?token={token}
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/{shareId}/{assetPath}?token={token}
 ```
+
+Same behavior; token in query string instead of path. Use this form for command-line testing.
 
 ## Auth
 
-**No header required.** Access is gated by the `token` query parameter — an unguessable 384-bit value created at upload time.
+**No header required.** Access is gated by the token — either in the URL path (`/_t/{token}/`) or in the `?token=` query string. The token is 384 bits of entropy (48 random bytes, base64url-encoded), validated with constant-time comparison.
 
-## Path / query parameters
+## Version resolution
 
-| Param | Where | Description |
-|---|---|---|
-| `shareId` | path | The presentation ID |
-| `token` | query string | The share token (URL-safe base64url) |
+The served version is determined strictly by the token's `versionMode`:
+
+- `{ type: 'latest' }` → the presentation's `currentVersion`
+- `{ type: 'pinned', version: N }` → exactly version N
+
+There is **no `?v=` query parameter** to override this. Recipients cannot see any version other than what their token resolves to. Only the owner, via [listPresentationVersions](/api-reference/list-presentation-versions) / [getPresentationVersion](/api-reference/get-presentation-version), can browse history.
 
 ## Response
 
 ### Success (200)
 
-`Content-Type: text/html; charset=utf-8` — the raw HTML body. Headers also include:
+`Content-Type` is taken from the manifest (`text/html; charset=utf-8` for the entry, or whatever the asset declared — `image/jpeg`, `video/mp4`, `model/gltf-binary`, …).
 
-```
-X-Content-Type-Options: nosniff
-Cache-Control: private, no-cache
-```
+Headers:
 
-Side effects (fire-and-forget — do not block the response):
+| Header | Value |
+|---|---|
+| `Content-Type` | As declared in the manifest |
+| `Content-Length` | For non-range responses |
+| `ETag` | `"<sha256-of-the-blob>"` — enables client caching |
+| `Cache-Control` | `private, max-age=300, must-revalidate` |
+| `Accept-Ranges` | `bytes` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Content-Security-Policy` | Set on entry HTML responses (sandbox + same-origin assets + `https:` CDNs allowed) |
+
+Side effects on entry HTML requests (fire-and-forget, not awaited):
 
 - Increments the matched token's `accessCount`
 - Updates the token's `lastAccessedAt`
 - Increments the presentation's `totalViews`
 - Updates the presentation's `lastViewedAt`
+
+Asset requests do NOT increment view counts (prevents over-counting: a deck with 20 assets would bump views by 21 otherwise).
+
+### Range (206)
+
+`Range: bytes=<start>-<end>` is honored on asset responses:
+
+```
+HTTP/1.1 206 Partial Content
+Content-Range: bytes 0-1023/824100
+Content-Length: 1024
+Content-Type: image/jpeg
+Accept-Ranges: bytes
+```
+
+Each Range response is capped at 50 MB per request to prevent memory spikes. Video players will automatically send multiple Range requests to stream long files.
+
+### ETag (304)
+
+`If-None-Match: "<sha256>"` triggers a `304 Not Modified` response when the asset matches. Browsers cache aggressively across loads.
 
 ### Errors
 
@@ -54,10 +95,49 @@ Side effects (fire-and-forget — do not block the response):
 |---|---|---|
 | `400` | `invalid-argument` | Missing `shareId` in path |
 | `403` | `revoked` | The token has been revoked |
-| `404` | `not-found` | Generic — also returned for "share doesn't exist", "token wrong", "presentation archived" (intentionally indistinct to prevent share-ID enumeration) |
-| `405` | `method-not-allowed` | Used POST/PUT/etc. |
+| `404` | `not-found` | Generic — also returned for "share doesn't exist", "token wrong", "presentation archived", "asset not in manifest", or "no token provided" (intentionally indistinct to prevent share-ID enumeration) |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. (only GET + HEAD accepted) |
 | `410` | `expired` | Presentation has an expiration set and it's past |
+| `416` | `range-not-satisfiable` | `Range` header requested a byte range outside the blob |
 | `500` | `internal` | Backend error |
+
+Error responses for the entry HTML path are served as minimal HTML (for iframe rendering). Asset paths return plain text.
+
+## Examples
+
+### Fetch entry HTML (curl)
+
+```bash
+curl -i "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-.../_t/AbCdEf.../"
+```
+
+### Fetch an asset (curl)
+
+```bash
+curl -i "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-.../_t/AbCdEf.../images/hero.jpg"
+```
+
+### Range request for video (curl)
+
+```bash
+curl -H "Range: bytes=0-1023" -i \
+  "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-.../_t/AbCdEf.../video/demo.mp4"
+```
+
+### Embedding pattern
+
+If you're building a custom viewer and want to load the deck into an iframe yourself:
+
+```html
+<iframe
+  src="https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-.../_t/AbCdEf.../"
+  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+  width="100%"
+  height="600"
+></iframe>
+```
+
+For most use cases, **don't do this** — share the [Slideless viewer URL](https://app.slideless.ai/share/...) instead. It includes fullscreen, download, and the "Made with Slideless" footer.
 
 ## Why the 404s look the same
 
@@ -66,34 +146,13 @@ To prevent attackers from probing share IDs, Slideless returns a generic `404 no
 - The share ID doesn't exist
 - The share ID exists but the token is wrong
 - The share ID exists but is archived
-- No `token` query parameter was provided
+- No token was provided
+- An asset path doesn't resolve in the current manifest
 
 There's no way to tell from the response which of these happened. This is intentional.
 
-## Example
-
-```bash
-curl -i "https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-...?token=AbCdEf..."
-```
-
-Returns `200` with the HTML body, `Content-Type: text/html`.
-
-## Embedding pattern
-
-If you're building a custom viewer and want to load the deck into an iframe yourself:
-
-```html
-<iframe
-  src="https://europe-west1-slideless-ai.cloudfunctions.net/getSharedPresentation/0192f1c3-...?token=AbCdEf..."
-  sandbox="allow-scripts"
-  width="100%"
-  height="600"
-></iframe>
-```
-
-For most use cases, **don't do this** — share the [Slideless viewer URL](https://app.slideless.ai/share/...) instead. It includes fullscreen, download, the "Made with Slideless" footer, and proper sandboxing without you having to maintain it.
-
 ## Next
 
-- **[Share tokens concept](/concepts/share-tokens)** — Why tokens are safe in URLs.
-- **[POST /uploadSharedPresentation](/api-reference/upload-presentation)** — How tokens are created.
+- **[Share tokens concept](/concepts/share-tokens)** — why tokens are safe in URLs.
+- **[Versioning](/concepts/versioning)** — why there's no `?v=` override.
+- **[POST /commitPresentationVersion](/api-reference/commit-presentation-version)** — how versions and manifests get created.

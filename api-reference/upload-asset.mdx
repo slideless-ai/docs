@@ -1,0 +1,124 @@
+---
+title: "POST /uploadPresentationAsset"
+description: "Step 2 of the three-step upload flow. Stream one content-addressed blob into the backend. Multipart form, hash-verified server-side."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) handles the upload flow end-to-end. This reference is for custom tooling.
+</Note>
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/uploadPresentationAsset
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) |
+| `Content-Type` | `multipart/form-data; boundary=...` |
+
+Required scope: `presentations:write`.
+
+## Multipart fields
+
+Order-independent. Send all five in one request:
+
+| Field | Required | Description |
+|---|---|---|
+| `shareId` | one of | Existing presentation to upload into (update flow). |
+| `sessionId` | one of | Upload session (new-presentation flow). You need one of `shareId` or `sessionId`. |
+| `sha256` | yes | Declared hash of the bytes being uploaded (64 lowercase hex chars). |
+| `contentType` | yes | MIME type. Stored on the blob; returned in `Content-Type` headers when the viewer serves this asset. |
+| `file` | yes | The raw bytes. Any field name accepted for the file part. |
+
+## Hash verification
+
+The backend recomputes the SHA-256 of the received bytes and compares against the declared `sha256`. If they don't match, the blob is deleted and the call returns `400 hash-mismatch`. This prevents a malicious client from smuggling corrupt content into another user's namespace.
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "sha256": "4edd6a4b20278337c9cd35ef2b71e375522abd1c7563301dca7eebac31b5665e",
+    "size": 723
+  }
+}
+```
+
+`size: 0` indicates the blob was already present — upload was skipped (idempotent).
+
+## Plan caps
+
+The per-file cap depends on your plan:
+
+| Plan | Per-file cap |
+|---|---|
+| Free | 50 MB |
+| Starter | 100 MB |
+| Pro | 250 MB |
+| Business | 500 MB |
+| Enterprise | 1 GB |
+
+Uploads over the cap fail with `413 payload-too-large`.
+
+## Example
+
+### curl
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -F "shareId=019dba77-4a1d-716e-8993-61e7c5771a7b" \
+  -F "sha256=4edd6a4b20278337c9cd35ef2b71e375522abd1c7563301dca7eebac31b5665e" \
+  -F "contentType=image/svg+xml" \
+  -F "file=@./images/hero.svg" \
+  https://europe-west1-slideless-ai.cloudfunctions.net/uploadPresentationAsset
+```
+
+### Node.js (native FormData + Blob)
+
+```js
+import { readFile } from 'fs/promises';
+import { createHash } from 'crypto';
+
+const bytes = await readFile('./images/hero.svg');
+const sha256 = createHash('sha256').update(bytes).digest('hex');
+const blob = new Blob([bytes], { type: 'image/svg+xml' });
+const form = new FormData();
+form.append('shareId', '019dba77-...');
+form.append('sha256', sha256);
+form.append('contentType', 'image/svg+xml');
+form.append('file', blob, 'blob');
+
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/uploadPresentationAsset',
+  {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.SLIDELESS_API_KEY}` },
+    body: form,
+  },
+);
+const { data } = await res.json();
+console.log('uploaded', data.sha256, '(' + data.size + ' bytes)');
+```
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| `400` | `invalid-argument` | Missing field, bad sha256 format, or malformed multipart body |
+| `400` | `hash-mismatch` | Uploaded bytes don't match declared sha256 (blob was deleted) |
+| `401` | `unauthenticated` | Missing/invalid API key |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or shareId/sessionId belongs to another user |
+| `404` | `not-found` | `shareId` or `sessionId` doesn't exist |
+| `410` | `archived` | Presentation is archived |
+| `413` | `payload-too-large` | Blob exceeds the plan's per-file cap |
+
+## Next
+
+- **[POST /commitPresentationVersion](/api-reference/commit-presentation-version)** — after all missing blobs are uploaded, commit the manifest.

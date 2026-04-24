@@ -64,6 +64,8 @@
         "group": "Concepts",
         "pages": [
           "concepts/presentations",
+          "concepts/assets",
+          "concepts/versioning",
           "concepts/share-tokens",
           "concepts/api-keys"
         ]
@@ -82,6 +84,7 @@
         "group": "Guides",
         "pages": [
           "guides/with-claude",
+          "guides/working-with-assets",
           "guides/uploading-via-api",
           "guides/updating-in-place",
           "guides/sharing-via-email"
@@ -97,12 +100,16 @@
           "api-reference/overview",
           "api-reference/authentication",
           "api-reference/cli-auth",
-          "api-reference/upload-presentation",
-          "api-reference/update-presentation",
+          "api-reference/precheck-assets",
+          "api-reference/upload-asset",
+          "api-reference/commit-presentation-version",
           "api-reference/share-via-email",
           "api-reference/list-presentations",
           "api-reference/get-presentation",
           "api-reference/add-presentation-token",
+          "api-reference/set-token-version-mode",
+          "api-reference/list-presentation-versions",
+          "api-reference/get-presentation-version",
           "api-reference/revoke-presentation",
           "api-reference/get-shared-presentation",
           "api-reference/verify-api-key"

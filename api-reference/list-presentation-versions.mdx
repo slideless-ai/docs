@@ -1,0 +1,82 @@
+---
+title: "GET /listPresentationVersions/{shareId}"
+description: "Owner-only. Summary of every committed version of a presentation, with title, author, file count, and total bytes."
+---
+
+<Note>
+This is an owner-only endpoint — public viewers (recipients with just a share URL token) cannot list versions. Pinning and version history are the owner's controls.
+</Note>
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/listPresentationVersions/{shareId}
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) — must belong to the presentation's owner |
+
+Required scope: `presentations:read`.
+
+## Path parameter
+
+| Name | Type | Description |
+|---|---|---|
+| `shareId` | string | Presentation ID |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "shareId": "019dba77-4a1d-716e-8993-61e7c5771a7b",
+    "currentVersion": 3,
+    "versions": [
+      {
+        "version": 1,
+        "title": "Q3 investor deck",
+        "createdAt": "2026-04-23T13:11:16.045Z",
+        "createdBy": "xuCsp5SZoMTmQJprofJtMQNQGY23",
+        "fileCount": 4,
+        "totalBytes": 4199
+      },
+      {
+        "version": 2,
+        "title": "Q3 investor deck",
+        "createdAt": "2026-04-23T13:11:46.410Z",
+        "createdBy": "xuCsp5SZoMTmQJprofJtMQNQGY23",
+        "fileCount": 4,
+        "totalBytes": 4010
+      },
+      {
+        "version": 3,
+        "title": "Q3 investor deck v3",
+        "createdAt": "2026-04-23T15:00:00.000Z",
+        "createdBy": "xuCsp5SZoMTmQJprofJtMQNQGY23",
+        "fileCount": 5,
+        "totalBytes": 812400
+      }
+    ]
+  }
+}
+```
+
+Versions are returned in ascending order (oldest first). `currentVersion` is the one that `latest`-mode tokens currently resolve to.
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| `400` | `invalid-argument` | Missing `shareId` in path |
+| `401` | `unauthenticated` | Missing/invalid API key |
+| `403` | `permission-denied` | Not the presentation's owner |
+| `404` | `not-found` | No presentation with that `shareId` |
+
+## Next
+
+- **[GET /getPresentationVersion](/api-reference/get-presentation-version)** — fetch a specific version's manifest.
+- **[POST /setTokenVersionMode](/api-reference/set-token-version-mode)** — pin a token to one of these versions.

@@ -40,11 +40,22 @@ Recommended scope: `presentations:write`.
 |---|---|---|---|
 | `shareId` | string | yes | The `shareId` of the existing presentation |
 | `tokenName` | string | yes | Human-readable label. Shown in `getSharedPresentationInfo` and the dashboard. |
+| `versionMode` | object | no | Either `{"type":"latest"}` (default) or `{"type":"pinned","version":N}` where N ≤ current version. See [Versioning](/concepts/versioning). |
 
-Example:
+Example — default (follows latest):
 
 ```json
 { "shareId": "0192f1c3-...", "tokenName": "Acme Corp" }
+```
+
+Example — pinned to v2:
+
+```json
+{
+  "shareId": "0192f1c3-...",
+  "tokenName": "Acme Corp",
+  "versionMode": { "type": "pinned", "version": 2 }
+}
 ```
 
 ## Response (200)
@@ -105,7 +116,7 @@ console.log('Send this URL to the recipient:', data.shareUrl);
 | `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
 | `404` | `not-found` | No presentation with that `shareId` | Verify with `listMyPresentations` |
 | `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
-| `410` | `archived` | Presentation is archived | Cannot add tokens to an archived deck — create a new share with `uploadSharedPresentation` |
+| `410` | `archived` | Presentation is archived | Cannot add tokens to an archived deck — create a new share with `commitPresentationVersion` (via `slideless share`) |
 | `500` | `internal` | Backend error | Retry with exponential backoff |
 
 ## Next
