@@ -116,7 +116,7 @@ console.log('Send this URL to the recipient:', data.shareUrl);
 | `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
 | `404` | `not-found` | No presentation with that `shareId` | Verify with `listMyPresentations` |
 | `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
-| `410` | `archived` | Presentation is archived | Cannot add tokens to an archived deck — create a new share with `commitPresentationVersion` (via `slideless share`) |
+| `410` | `archived` | Presentation is archived | Cannot add tokens to an archived deck — create a new share with `slideless share <path>` |
 | `500` | `internal` | Backend error | Retry with exponential backoff |
 
 ## Next
