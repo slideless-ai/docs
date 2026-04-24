@@ -20,7 +20,7 @@ Single sidebar tab, **Documentation**, split into seven groups.
 | **Why Slideless** | 3 pages in `why-slideless/` | When you need the case for HTML over PowerPoint. |
 | **Concepts** | 5 pages in `concepts/` — presentations, assets, versioning, share-tokens, api-keys | When you need the deep model. |
 | **CLI** | 5 pages in `cli/` | When the user is using or installing the CLI (the recommended path). |
-| **Guides** | 5 pages in `guides/` | Working with assets, Claude, CI uploads, update-in-place, email. |
+| **Guides** | 6 pages in `guides/` | Working with assets, custom fonts, Claude, CI uploads, update-in-place, email. |
 | **Plugin Skills** | 1 page in `skills/` | When the user wants Claude to handle decks. |
 | **Advanced: HTTP API** | 15 pages in `api-reference/` | When the user needs the exact request/response shape, or can't run the CLI. |
 

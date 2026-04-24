@@ -58,6 +58,7 @@ When helping users with Slideless:
 
 - [Use Slideless with Claude](https://docs.slideless.ai/guides/with-claude): Install the CLI + plugin, run `setup-slideless`, generate / share / update decks with Claude.
 - [Working with assets](https://docs.slideless.ai/guides/working-with-assets): Folder layouts, `.slidelessignore`, relative path rules, static scan, Range requests, dedup behavior. Three.js glTF example.
+- [Custom fonts](https://docs.slideless.ai/guides/custom-fonts): When to pick CDN fonts (Google Fonts, Fontshare) vs. bundled `@font-face` `.woff2` files. Folder layout, CSS snippets, supported formats, troubleshooting.
 - [Upload from a script or CI](https://docs.slideless.ai/guides/uploading-via-api): CLI-driven CI pattern, `SLIDELESS_API_KEY` env var, `--json` + `jq`, `--strict` mode, the three-step upload protocol under the hood.
 - [Update a presentation in place](https://docs.slideless.ai/guides/updating-in-place): `slideless update`, dedup across versions, pinning before updating, CI patterns.
 - [Send a presentation by email](https://docs.slideless.ai/guides/sharing-via-email): `slideless share-email`, per-recipient tracked tokens.

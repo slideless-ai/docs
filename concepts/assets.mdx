@@ -26,12 +26,19 @@ Slideless detects MIME types from file extensions. A sensible default table plus
 | `.gltf` | `model/gltf+json` |
 | `.usdz` | `model/vnd.usdz+zip` |
 | `.glsl` / `.wgsl` | `text/plain; charset=utf-8` |
+| `.woff2` | `font/woff2` |
+| `.woff` | `font/woff` |
+| `.ttf` | `font/ttf` |
+| `.otf` | `font/otf` |
+| `.eot` | `application/vnd.ms-fontobject` |
 | `.html` | `text/html; charset=utf-8` |
 | `.css` | `text/css; charset=utf-8` |
 | `.js` / `.mjs` / `.cjs` | `text/javascript; charset=utf-8` |
 | `.json` | `application/json; charset=utf-8` |
 | `.webmanifest` | `application/manifest+json` |
 | unknown | `application/octet-stream` |
+
+Bundling custom fonts with `@font-face`? See [Custom fonts](/guides/custom-fonts) for the folder layout and the CSS snippet.
 
 If a format you need isn't detected correctly, file an issue — overrides live in a single map in the CLI.
 

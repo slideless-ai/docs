@@ -72,6 +72,8 @@ External `https://` URLs pass through unchanged and don't count against your sto
 - If the CDN goes down, your deck breaks.
 - The viewer's sandbox + CSP allow `https:` for images, scripts, styles, fonts, and `connect-src`. Anything weirder (a WebSocket to a non-TLS host, a `ws://` stream, etc.) will be blocked by CSP.
 
+For typography specifically — when to pick CDN fonts vs. bundling `.woff2` files inside the deck — see [Custom fonts](/guides/custom-fonts).
+
 ## Static scan (pre-upload warnings)
 
 Before uploading, the CLI scans your HTML + CSS for common reference patterns (`src=`, `href=`, CSS `url(...)`, `@import`) and classifies each:
