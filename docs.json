@@ -1,27 +1,39 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "aspen",
   "name": "Slideless Documentation",
   "colors": {
-    "primary": "#1E1432",
-    "light": "#A78BFA",
-    "dark": "#150E24"
+    "primary": "#29ff8d",
+    "light": "#29ff8d",
+    "dark": "#0a0a0a"
   },
   "fonts": {
     "heading": {
-      "family": "Satoshi",
-      "weight": 700,
-      "source": "https://cdn.fontshare.com/wf/BNPRT3ODDLFBWCXYJT3DHQD5HQ6KXIUF/TQZKMSQ7LSXFQXBNSJKXWQR3KMBNHYXW/SATOSHI-BOLD.woff2",
-      "format": "woff2"
+      "family": "JetBrains Mono",
+      "weight": 800
     },
     "body": {
-      "family": "Geist"
+      "family": "Inter",
+      "weight": 400
     }
   },
   "background": {
+    "decoration": "grid",
     "color": {
-      "light": "#FDFCFB",
-      "dark": "#0A0F1E"
+      "light": "#fbf8ea",
+      "dark": "#070710"
+    }
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "styling": {
+    "eyebrows": "section",
+    "codeblocks": {
+      "theme": {
+        "light": "github-light",
+        "dark": "github-dark"
+      }
     }
   },
   "favicon": "/favicon.svg",
@@ -31,69 +43,87 @@
     "href": "https://app.slideless.ai"
   },
   "appearance": {
-    "default": "system"
+    "default": "light",
+    "strict": false
   },
   "navigation": {
-    "tabs": [
+    "groups": [
       {
-        "tab": "Documentation",
-        "groups": [
-          {
-            "group": "Getting Started",
-            "pages": ["index", "quickstart"]
-          },
-          {
-            "group": "Why Slideless",
-            "pages": [
-              "why-slideless/portable",
-              "why-slideless/dynamic",
-              "why-slideless/shareable"
-            ]
-          },
-          {
-            "group": "Concepts",
-            "pages": [
-              "concepts/presentations",
-              "concepts/share-tokens",
-              "concepts/api-keys"
-            ]
-          },
-          {
-            "group": "CLI",
-            "pages": [
-              "cli/overview",
-              "cli/installation",
-              "cli/configuration",
-              "cli/auth",
-              "cli/commands"
-            ]
-          },
-          {
-            "group": "Guides",
-            "pages": [
-              "guides/with-claude",
-              "guides/uploading-via-api",
-              "guides/updating-in-place"
-            ]
-          },
-          {
-            "group": "Plugin Skills",
-            "pages": ["skills/overview"]
-          },
-          {
-            "group": "Advanced: HTTP API",
-            "pages": [
-              "api-reference/overview",
-              "api-reference/authentication",
-              "api-reference/cli-auth",
-              "api-reference/upload-presentation",
-              "api-reference/update-presentation",
-              "api-reference/list-presentations",
-              "api-reference/get-presentation",
-              "api-reference/get-shared-presentation",
-              "api-reference/verify-api-key"
-            ]
-          }
+        "group": "Getting Started",
+        "pages": ["index", "quickstart"]
+      },
+      {
+        "group": "Why Slideless",
+        "pages": [
+          "why-slideless/portable",
+          "why-slideless/dynamic",
+          "why-slideless/shareable"
+        ]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/presentations",
+          "concepts/lifecycle",
+          "concepts/assets",
+          "concepts/versioning",
+          "concepts/share-tokens",
+          "concepts/collaboration",
+          "concepts/api-keys"
+        ]
+      },
+      {
+        "group": "CLI",
+        "pages": [
+          "cli/overview",
+          "cli/installation",
+          "cli/configuration",
+          "cli/auth",
+          "cli/commands"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/with-claude",
+          "guides/working-with-assets",
+          "guides/custom-fonts",
+          "guides/uploading-via-api",
+          "guides/sharing-via-email"
+        ]
+      },
+      {
+        "group": "Plugin Skills",
+        "pages": ["skills/overview"]
+      },
+      {
+        "group": "Claude Desktop (MCP)",
+        "pages": ["integrations/claude-desktop-mcp"]
+      },
+      {
+        "group": "Advanced: HTTP API",
+        "pages": [
+          "api-reference/overview",
+          "api-reference/authentication",
+          "api-reference/cli-auth",
+          "api-reference/precheck-assets",
+          "api-reference/upload-asset",
+          "api-reference/commit-presentation-version",
+          "api-reference/download-presentation-asset",
+          "api-reference/share-via-email",
+          "api-reference/list-presentations",
+          "api-reference/get-presentation",
+          "api-reference/add-presentation-token",
+          "api-reference/set-token-version-mode",
+          "api-reference/list-presentation-versions",
+          "api-reference/get-presentation-version",
+          "api-reference/unshare-presentation",
+          "api-reference/delete-presentation",
+          "api-reference/invite-collaborator",
+          "api-reference/uninvite-collaborator",
+          "api-reference/list-collaborators",
+          "api-reference/get-shared-presentation",
+          "api-reference/verify-api-key"
         ]
       }
     ],

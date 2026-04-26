@@ -125,6 +125,10 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/cliCompleteSignup
 {
   "email": "you@example.com",
   "code": "123456",
+  "user": {
+    "firstName": "Alex",
+    "lastName": "Morgan"
+  },
   "company": {
     "name": "Acme",
     "description": "We make widgets",
@@ -147,7 +151,9 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/cliCompleteSignup
 | Field | Required | Notes |
 |---|---|---|
 | `email`, `code` | yes | 6-digit numeric code from the OTP email |
-| `company.name` | no | Defaults to `"My Organization"`. Max 100 chars |
+| `user.firstName` | **yes** | Stored as the user's display name and used in onboarding emails. Max 60 chars |
+| `user.lastName` | no | Appended to display name when present. Max 60 chars |
+| `company.name` | no | Defaults to `"<user.firstName>'s workspace"`. Max 100 chars |
 | `company.description`, `company.tone` | no | Free text |
 | `company.brandPrimary` / `brandSecondary` / `brandAccent` | no | 6-digit hex, with or without leading `#` |
 | `logo.data` | no | Base64-encoded bytes, max 2 MB decoded |
@@ -183,6 +189,8 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/cliCompleteSignup
 | Status | Code | Meaning |
 |---|---|---|
 | 400 | `EMAIL_REQUIRED` / `OTP_INVALID` | Missing/malformed inputs |
+| 400 | `USER_FIRST_NAME_REQUIRED` | Missing `user.firstName` |
+| 400 | `USER_NAME_TOO_LONG` | `user.firstName` or `user.lastName` over 60 chars |
 | 400 | `COMPANY_NAME_TOO_LONG` / `BRAND_COLOR_INVALID` | Optional fields failed validation |
 | 400 | `LOGO_TOO_LARGE` / `LOGO_INVALID_FORMAT` / `LOGO_DECODE_FAILED` | Logo rejected |
 | 400 | `INVALID_EXPIRES_IN_DAYS` | `apiKey.expiresInDays` outside 1–365 |

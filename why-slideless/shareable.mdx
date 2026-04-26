@@ -23,35 +23,43 @@ Slideless gives you a single URL per deck and lets you update what's behind it w
 
 ```
 1. AI generates the HTML       (e.g. Claude with `generate-presentation`)
-2. You publish it              (`slideless share ./deck.html --title "..."`)
+2. You upload it               (`slideless push ./deck.html --title "..."`)
+   → returns presentationId, writes slideless.json at the deck root
+3. You mint a viewer URL       (`slideless share <presentationId>`)
    → returns shareUrl
-3. You share the URL           (Slack, email, anywhere)
-4. You iterate on the content  (Claude regenerates, you tweak)
-5. You re-publish              (`slideless update <shareId> ./deck.html`)
+4. You share the URL           (Slack, email, anywhere)
+5. You iterate on the content  (Claude regenerates, you tweak)
+6. You re-publish              (`slideless push` again from the same folder)
    → same shareUrl, version + 1, view count preserved
-6. Recipients refresh          (they see the new content, no re-share)
+7. Recipients refresh          (they see the new content, no re-share)
 ```
 
 That's it. The URL you sent on Tuesday morning still works on Friday afternoon, even though the content has been edited five times in between.
 
 ## In a terminal
 
-Generate, share, and update. Three commands:
+Generate, push, share, iterate:
 
 ```bash
 # Generate (with the Claude marketplace skill)
 $ claude --skill generate-presentation "Q4 results, revenue, churn, headcount" > deck.html
 
-# Publish
-$ slideless share ./deck.html --title "Q4 review"
-✓ Presentation shared
+# Push
+$ slideless push ./deck.html --title "Q4 review"
+✓ Presentation pushed
 
   Share ID:  abc123
+  Version:   1
+
+# Mint a public viewer URL
+$ slideless share abc123
+✓ Share URL minted
+
   Share URL: https://app.slideless.ai/share/abc123?token=...
 
-# Iterate, then re-publish (same shareId, URL doesn't change)
-$ slideless update abc123 ./deck-v2.html
-✓ Presentation updated to v2
+# Iterate, then re-publish (same presentationId, same URL)
+$ slideless push ./deck.html
+✓ Presentation pushed to v2
 
   Share URL: https://app.slideless.ai/share/abc123?token=...
 ```
@@ -64,7 +72,7 @@ When you re-publish:
 
 | Stays the same | Bumps / accumulates |
 |---|---|
-| `shareId` (and therefore the share URL) | `version` (auto-increments) |
+| `presentationId` (and therefore the share URL) | `version` (auto-increments) |
 | `tokens` (every share token still works) | `updatedAt` |
 | `totalViews` (no reset) | The HTML content itself |
 | `lastViewedAt` history | |
@@ -82,8 +90,24 @@ A few practical applications:
 - **Pitch decks** you tweak after each investor meeting, without recirculating.
 - **Workshop materials** that update mid-session as questions come up.
 
+## Send it straight to an inbox
+
+When you do need to hand the URL off, Slideless emails it for you. `slideless share-email <presentationId> --to alice@example.com` ships a branded mail via Resend with a **unique tracked link per recipient**, so you can see who actually opened the deck. Perfect for sales outreach where you'd otherwise BCC a list and never know who read it.
+
+```bash
+slideless share-email abc123 \
+  --to alice@example.com --to bob@example.com \
+  --message "Here's the deck we discussed." \
+  --json
+```
+
+Same from Claude Code / Cursor via the `share-presentation-email` plugin skill, or from the dashboard's "Share via email" modal.
+
+See [Send a presentation by email](/guides/sharing-via-email).
+
 ## Next
 
-- **[Update in place](/guides/updating-in-place)** — Detailed walkthrough of the re-publish flow.
+- **[Send a presentation by email](/guides/sharing-via-email)** — CLI, plugin, and dashboard recipes.
+- **[Collaboration](/concepts/collaboration)** — Cross-device push/pull, dev collaborators, the conflict model.
 - **[Use with Claude](/guides/with-claude)** — Generate the HTML with the marketplace skills.
 - **[CLI overview](/cli/overview)** — Why the CLI is the way in.

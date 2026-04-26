@@ -1,0 +1,105 @@
+---
+title: "POST /precheckAssets"
+description: "Step 1 of the three-step upload flow. Send SHA-256 hashes of every file in your deck; get back the subset the backend doesn't already have."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) handles the upload flow end-to-end — you rarely need to call this endpoint directly. This reference is for custom tooling that can't run Node.
+</Note>
+
+## The three-step upload flow
+
+Slideless uses a **content-addressed** upload protocol. Each file is stored by its SHA-256 hash, so unchanged files across deck versions dedupe automatically.
+
+1. **`POST /precheckAssets`** — send hashes, get back which ones are missing. (This page.)
+2. **[`POST /uploadPresentationAsset`](/api-reference/upload-asset)** — upload each missing blob (multipart, streamed).
+3. **[`POST /commitPresentationVersion`](/api-reference/commit-presentation-version)** — commit the manifest, bump the version.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/precheckAssets
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) |
+| `Content-Type` | `application/json` |
+
+Required scope: `presentations:write`.
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `hashes` | `string[]` | yes | SHA-256 hashes (64 lowercase hex chars each). Max 2000 per call. |
+| `presentationId` | string | no | Check against this existing presentation's blob store. Requires ownership. |
+| `sessionId` | string | no | Carry a session from a prior call. Mutually exclusive with `presentationId`. |
+
+Call patterns:
+
+- **New presentation (first call):** omit both `presentationId` and `sessionId`. Response includes `sessionId` + reserved `presentationId` to use for `uploadPresentationAsset` and `commitPresentationVersion`.
+- **Update existing presentation:** pass `presentationId`. Backend checks dedup against that presentation's blob store.
+- **Subsequent calls in a new-presentation flow:** pass the `sessionId` you got from the first call.
+
+Example:
+
+```json
+{
+  "hashes": [
+    "4edd6a4b20278337c9cd35ef2b71e375522abd1c7563301dca7eebac31b5665e",
+    "c3d6ce7c672be2d98d555bed4504b944c9730ec33baf35b778cc049cf928ccb0"
+  ]
+}
+```
+
+## Response (200)
+
+### New-presentation flow (no presentationId in request)
+
+```json
+{
+  "success": true,
+  "data": {
+    "missing": [
+      "4edd6a4b20278337c9cd35ef2b71e375522abd1c7563301dca7eebac31b5665e",
+      "c3d6ce7c672be2d98d555bed4504b944c9730ec33baf35b778cc049cf928ccb0"
+    ],
+    "sessionId": "019dba77-...",
+    "presentationId": "019dba77-4a1d-716e-8993-61e7c5771a7b"
+  }
+}
+```
+
+### Update flow (presentationId in request)
+
+```json
+{
+  "success": true,
+  "data": {
+    "missing": ["c3d6ce7c672be2d98d555bed4504b944c9730ec33baf35b778cc049cf928ccb0"]
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `missing` | Subset of input hashes that need uploading. Everything else is already in the store. |
+| `sessionId` | Only present on new-presentation flow. Pass on subsequent calls. Sessions auto-expire after 1 hour. |
+| `presentationId` | Only present on new-presentation flow. The reserved presentationId for the final commit. |
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| `400` | `invalid-argument` | `hashes` isn't an array, >2000 entries, or entries don't match the sha256 regex |
+| `401` | `unauthenticated` | Missing/invalid API key |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or caller is not the owner or an active dev collaborator |
+| `404` | `not-found` | `presentationId` or `sessionId` doesn't exist (sessions expire after 1 hour) |
+
+## Next
+
+- **[POST /uploadPresentationAsset](/api-reference/upload-asset)** — upload missing blobs (step 2).
+- **[POST /commitPresentationVersion](/api-reference/commit-presentation-version)** — commit the manifest (step 3).

@@ -1,0 +1,102 @@
+---
+title: "Assets"
+description: "How Slideless stores images, video, 3D models, CSS, JS, and any other file your deck references — content-addressed, deduplicated across versions."
+---
+
+## What an asset is
+
+An **asset** is any non-HTML file your deck references: images, GIFs, video, audio, 3D models (glTF/GLB/USDZ), shaders (GLSL/WGSL), CSS, JS modules, JSON data files, fonts. Slideless doesn't have a hardcoded allow-list — whatever you put in the deck folder gets uploaded and served with the correct `Content-Type`.
+
+## Supported formats
+
+Slideless detects MIME types from file extensions. A sensible default table plus a few explicit overrides:
+
+| Extension | Content-Type |
+|---|---|
+| `.jpg` / `.jpeg` | `image/jpeg` |
+| `.png` | `image/png` |
+| `.webp` | `image/webp` |
+| `.gif` | `image/gif` |
+| `.svg` | `image/svg+xml` |
+| `.hdr` | `image/vnd.radiance` |
+| `.mp4` | `video/mp4` |
+| `.webm` | `video/webm` |
+| `.mp3` / `.wav` / `.ogg` | audio/* |
+| `.glb` | `model/gltf-binary` |
+| `.gltf` | `model/gltf+json` |
+| `.usdz` | `model/vnd.usdz+zip` |
+| `.glsl` / `.wgsl` | `text/plain; charset=utf-8` |
+| `.woff2` | `font/woff2` |
+| `.woff` | `font/woff` |
+| `.ttf` | `font/ttf` |
+| `.otf` | `font/otf` |
+| `.eot` | `application/vnd.ms-fontobject` |
+| `.html` | `text/html; charset=utf-8` |
+| `.css` | `text/css; charset=utf-8` |
+| `.js` / `.mjs` / `.cjs` | `text/javascript; charset=utf-8` |
+| `.json` | `application/json; charset=utf-8` |
+| `.webmanifest` | `application/manifest+json` |
+| unknown | `application/octet-stream` |
+
+Bundling custom fonts with `@font-face`? See [Custom fonts](/guides/custom-fonts) for the folder layout and the CSS snippet.
+
+If a format you need isn't detected correctly, file an issue — overrides live in a single map in the CLI.
+
+## Content-addressed storage
+
+Every asset is stored at a path derived from its SHA-256:
+
+```
+shared_presentations/{presentationId}/assets/sha256/{first-two-hex-chars}/{full-hash}
+```
+
+Three consequences:
+
+1. **Integrity**. The backend recomputes the hash server-side during upload. If the declared hash doesn't match the received bytes, the blob is deleted and the upload is rejected with `hash-mismatch` — so a malicious client can't smuggle corrupt content into another user's namespace.
+2. **Dedup across versions**. Update a deck, keep the same hero image — only the changed files re-upload. The same blob is referenced by every manifest that includes it.
+3. **Strong caching**. The viewer sets `ETag: "<sha256>"` on every response, so browsers can cache aggressively and revalidate with `If-None-Match` (the Cloud Function returns `304 Not Modified` instantly).
+
+## Per-version manifests
+
+Each version has a manifest file in Cloud Storage listing every file by literal path plus its hash + size + content type:
+
+```json
+{
+  "version": 2,
+  "title": "Q3 deck",
+  "entryPath": "index.html",
+  "files": [
+    { "path": "index.html",      "sha256": "aa…", "size": 12034,  "contentType": "text/html; charset=utf-8" },
+    { "path": "styles.css",      "sha256": "bb…", "size": 3120,   "contentType": "text/css; charset=utf-8" },
+    { "path": "images/hero.jpg", "sha256": "cc…", "size": 824100, "contentType": "image/jpeg" }
+  ],
+  "createdAt": "2026-04-23T13:11:16Z",
+  "createdBy": "<userId>"
+}
+```
+
+When the viewer fetches `/share/{presentationId}/images/hero.jpg`, the backend resolves the current (or pinned) version's manifest, looks up the literal path, reads the hash, and streams the blob. No HTML rewriting, no URL mangling — the author's `<img src="./images/hero.jpg">` goes straight through.
+
+## Relative paths and the deck root
+
+The deck root is whatever you passed to `slideless push`. Paths in HTML and CSS are resolved relative to the file they appear in:
+
+- `./foo.jpg` from `index.html` → `foo.jpg` (deck root)
+- `../assets/foo.jpg` from `index.html` → **rejected** (escapes the deck root)
+- `/foo.jpg` from anywhere → `foo.jpg` (root-absolute maps to deck root, not to /)
+- `./styles.css` from `subdir/page.html` → `subdir/styles.css`
+
+This matches how a static webserver resolves paths with the deck folder as document root. External URLs (`https://...`, `//...`, `data:`, `blob:`) pass through unchanged.
+
+## Streaming and Range support
+
+Large assets (video, big glTF models) are served with `Accept-Ranges: bytes` and support `Range` requests. `<video>` tags can seek correctly; clients can resume truncated downloads. The viewer caps each Range response at 50 MB to prevent memory spikes on the serving side.
+
+## Size and file-count caps
+
+See [Presentations](/concepts/presentations#size-and-file-count-caps) for the full plan-by-plan table. On the free tier: **50 MB per file**, **250 MB total**, **500 files max**, **10 MB per HTML file**.
+
+## What doesn't count against your quota
+
+- External CDN dependencies (`https://unpkg.com/three@0.160/...`, Google Fonts, any `https://` URL).
+- Deduped assets on a subsequent `slideless push` — if an image is unchanged, it doesn't re-upload and doesn't re-charge storage.

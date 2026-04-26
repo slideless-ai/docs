@@ -13,7 +13,7 @@ For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling 
 https://europe-west1-slideless-ai.cloudfunctions.net
 ```
 
-All endpoints are Cloud Functions in `europe-west1`. There is no API versioning in v1 — the URL above is the only stable one.
+All endpoints are Cloud Functions in `europe-west1`. There is no URL versioning — the base above is the only stable one.
 
 ## Authentication
 
@@ -32,62 +32,121 @@ Two key formats are accepted:
 
 See [Authentication](/api-reference/authentication) and [API keys](/concepts/api-keys) for the full story.
 
-## Error format
+## Response format
 
-Errors return a JSON body with `error` (human-readable) and `code` (machine-readable):
+Every CLI-facing endpoint wraps its payload in a consistent envelope:
+
+**Success:**
+
+```json
+{ "success": true, "data": { "...": "endpoint-specific payload" } }
+```
+
+**Error:**
 
 ```json
 {
-  "error": "Invalid or missing API key.",
-  "code": "unauthenticated"
+  "success": false,
+  "error": {
+    "code": "unauthenticated",
+    "message": "Invalid or missing API key."
+  }
 }
 ```
 
-The `verifyApiKey` endpoint uses a slightly different shape (`{ success, error: { message }, requestId }`) — see its [reference page](/api-reference/verify-api-key).
+Some errors carry `error.nextAction` (a machine-readable hint) and `error.details` (extra structured context).
+
+The public viewer endpoint ([`getSharedPresentation`](/api-reference/get-shared-presentation)) is the only exception — it returns raw bytes (HTML, image, video, etc.) because it feeds the share iframe directly.
 
 ## Status codes
 
 | Status | Meaning |
 |---|---|
 | `200` | Success |
-| `400` | Bad request — missing or invalid arguments |
+| `206` | Partial content (Range response on `getSharedPresentation` asset fetches) |
+| `304` | Not Modified (asset matches `If-None-Match`) |
+| `400` | Bad request — missing or invalid arguments, or hash mismatch on asset upload |
 | `401` | Missing or invalid API key |
 | `403` | Authenticated but not allowed (wrong owner, revoked token, missing scope) |
-| `404` | Resource not found, or generically returned to prevent enumeration of share IDs |
+| `404` | Resource not found, or generically returned to prevent enumeration |
 | `405` | Wrong HTTP method |
-| `410` | Gone — share expired or presentation archived |
-| `413` | Payload too large (> 10 MB on upload/update) |
+| `409` | Conflict — push's `expectedBaseVersion` lags the server |
+| `410` | Gone — token revoked or share expired |
+| `413` | Payload too large (exceeds plan cap) |
 | `500` | Internal error — retry with backoff |
+
+## The three-step upload flow
+
+Creating or updating a presentation uses content-addressed storage across three endpoints:
+
+1. **[`POST /precheckAssets`](/api-reference/precheck-assets)** — hash every local file, ask the backend which hashes it already has.
+2. **[`POST /uploadPresentationAsset`](/api-reference/upload-asset)** — multipart upload, once per missing blob. Hash-verified server-side.
+3. **[`POST /commitPresentationVersion`](/api-reference/commit-presentation-version)** — send the manifest, backend writes a new immutable version.
+
+Unchanged blobs across versions dedupe automatically — updates transfer only what actually changed.
 
 ## Endpoint index
 
+### Upload flow
+
 | Endpoint | Method | Auth | Purpose |
 |---|---|---|---|
-| [`/uploadSharedPresentation`](/api-reference/upload-presentation) | POST | API key | Create a new presentation |
-| [`/updateSharedPresentation`](/api-reference/update-presentation) | POST | API key | Replace HTML at an existing share (URL preserved) |
-| [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List your presentations (cap: 100) |
-| [`/getSharedPresentationInfo/{shareId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
-| [`/getSharedPresentation/{shareId}`](/api-reference/get-shared-presentation) | GET | Token in URL | Public — returns the raw HTML; increments view counts |
+| [`/precheckAssets`](/api-reference/precheck-assets) | POST | API key | Which hashes are missing? Mints upload session on new-presentation flow. |
+| [`/uploadPresentationAsset`](/api-reference/upload-asset) | POST | API key | Upload one blob (multipart). Hash-verified. |
+| [`/commitPresentationVersion`](/api-reference/commit-presentation-version) | POST | API key | Commit the manifest. Creates presentation or bumps version. |
+
+### Discovery + management
+
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
+| [`/listMyPresentations`](/api-reference/list-presentations) | GET | API key | List presentations you can access (owned + shared-with-you), cap 100 |
+| [`/getSharedPresentationInfo/{presentationId}`](/api-reference/get-presentation) | GET | API key | Full metadata + token list for one presentation |
+| [`/addPresentationToken`](/api-reference/add-presentation-token) | POST | API key | Mint a new named token |
+| [`/setTokenVersionMode`](/api-reference/set-token-version-mode) | POST | API key (owner) | Pin a token to a version or follow latest |
+| [`/listPresentationVersions/{presentationId}`](/api-reference/list-presentation-versions) | GET | API key (owner or dev) | List every version's summary |
+| [`/getPresentationVersion/{presentationId}/{version}`](/api-reference/get-presentation-version) | GET | API key (owner or dev) | Get a specific version's full manifest |
+| [`/downloadPresentationAsset`](/api-reference/download-presentation-asset) | GET | API key (owner or dev) | Authenticated streaming download of a single asset by sha256 |
+| [`/unsharePresentation`](/api-reference/unshare-presentation) | POST | API key (owner) | Revoke one token or every token on the deck |
+| [`/deletePresentation`](/api-reference/delete-presentation) | POST | API key (owner) | Hard delete — Firestore doc, every version, every asset, every collaborator row |
+| [`/inviteCollaborator`](/api-reference/invite-collaborator) | POST | API key (owner) | Grant dev (edit) access by email |
+| [`/uninviteCollaborator`](/api-reference/uninvite-collaborator) | POST | API key (owner) | Revoke a dev collaborator |
+| [`/listCollaborators`](/api-reference/list-collaborators) | POST | API key (owner) | Every collaborator row (pending/active/revoked) |
+| [`/sharePresentationViaEmail`](/api-reference/share-via-email) | POST | API key | Email to 1–20 recipients with per-recipient tracked links |
+
+### Public viewer
+
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
+| [`/getSharedPresentation/{presentationId}/_t/{token}/...`](/api-reference/get-shared-presentation) | GET | Token in URL | Serves entry HTML + assets. Range-request aware for video. |
+
+### Auth
+
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
 | [`/verifyApiKey`](/api-reference/verify-api-key) | POST | API key | Validate a key, return its metadata |
+| [CLI OTP flow](/api-reference/cli-auth) | POST | none | Signup/login via 6-digit email OTP |
 
 ## Limits
 
+Plan-dependent. See [Presentations → Size and file-count caps](/concepts/presentations#size-and-file-count-caps) for the full table. Free tier summary:
+
 | Limit | Value |
 |---|---|
-| Upload / update HTML size | 10 MB per request |
-| List response cap | 100 presentations (no cursor pagination in v1) |
-| Per-key rate limit | None enforced in v1 |
+| Single HTML file | 10 MB |
+| Single asset blob | 50 MB |
+| Total deck size | 250 MB |
+| Files per manifest | 500 |
+| Precheck hashes per call | 2000 |
+| Upload session TTL | 1 hour |
+| List response cap | 100 presentations (no cursor pagination) |
 | API keys per organization | 20 |
 
 ## CORS
 
-All HTTP endpoints set `cors: true` — they accept browser requests from any origin. The auth header (`Authorization`) is allowed.
+All HTTP endpoints set `cors: true` — they accept browser requests from any origin. `Authorization` and `Content-Type` are allowed headers.
 
 ## Idempotency
 
-`uploadSharedPresentation` is **not** idempotent — every call creates a new presentation with a new `shareId`. To re-publish to the same URL, use [`updateSharedPresentation`](/api-reference/update-presentation) instead.
-
-## Next
-
-- **[Authentication](/api-reference/authentication)** — How the `Authorization` header works.
-- **[Upload a presentation](/api-reference/upload-presentation)** — The most common endpoint, with examples in curl, Node, and Python.
+- **`precheckAssets`** is idempotent — repeat calls return the same `missing` set.
+- **`uploadPresentationAsset`** is idempotent — if the blob already exists, the call succeeds and returns `size: 0`.
+- **`commitPresentationVersion`** is NOT idempotent — each call bumps `currentVersion`.

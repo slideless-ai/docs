@@ -1,0 +1,47 @@
+---
+title: "POST /deletePresentation"
+description: "HARD DELETE a presentation. Removes every version, asset, collaborator row, and the Firestore doc. Irreversible."
+---
+
+<Warning>
+This operation is **irreversible**. Once removed, the deck, every version, every asset, and every collaborator row are gone for good.
+</Warning>
+
+## When to use
+
+You want to permanently remove a presentation. For non-destructive alternatives, see [`unsharePresentation`](/api-reference/unshare-presentation) and [`uninviteCollaborator`](/api-reference/uninvite-collaborator).
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/deletePresentation
+```
+
+## Authentication
+
+`Authorization: Bearer <key>` — owner only.
+
+## Request body
+
+```json
+{ "presentationId": "01HXYZ..." }
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "data": { "success": true, "blobsDeleted": 47 }
+}
+```
+
+`blobsDeleted` is the number of GCS objects removed (manifests + content-addressed blobs) — a sanity check you got the full prefix.
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| 401 | `unauthenticated` | Missing/invalid key |
+| 403 | `permission-denied` | Not the owner |
+| 404 | `not-found` | `presentationId` unknown |

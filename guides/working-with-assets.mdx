@@ -1,0 +1,189 @@
+---
+title: "Working with assets"
+description: "Folder layout, ignore rules, relative paths, and how Slideless serves asset bundles exactly like a static webserver."
+---
+
+## The mental model
+
+A Slideless deck folder IS a tiny static website. The entry HTML lives at the root, assets live wherever you want, and the viewer serves them like any static server would. Relative paths in your HTML just work — `./hero.jpg`, `../styles.css`, `/assets/logo.png` all resolve the way you'd expect.
+
+Upload the folder with `slideless push ./deck --title "..."`, and Slideless replicates the structure on its end.
+
+## Folder layouts
+
+No forced convention — all of these are valid:
+
+```
+deck/                      deck/                     deck/
+├── index.html             ├── index.html            ├── index.html
+└── hero.jpg               ├── images/               ├── styles.css
+                           │   └── hero.jpg          ├── hero.jpg
+                           ├── video/                ├── demo.mp4
+                           │   └── demo.mp4          └── three/
+                           └── three/                    ├── scene.js
+                               ├── scene.js              └── model.glb
+                               └── model.glb
+```
+
+The entry file is `index.html` by default. Override with `--entry`:
+
+```bash
+slideless push ./deck --title "My deck" --entry deck.html
+```
+
+## What gets uploaded
+
+Every file under the folder, recursively, **except**:
+
+- Built-in ignores: `.git/`, `node_modules/`, `.DS_Store`, `Thumbs.db`, `.vercel/`, `.next/`, `*.log`.
+- Anything excluded by a `.slidelessignore` file at the folder root (gitignore syntax).
+
+Example `.slidelessignore`:
+
+```
+# Drafts I don't want uploaded
+drafts/
+*.draft.html
+
+# Source maps / SASS
+*.map
+**/*.scss
+```
+
+## Relative paths — the rules
+
+Paths in HTML and CSS are resolved relative to the file they appear in, against the deck root:
+
+| In source | Resolves to |
+|---|---|
+| `./hero.jpg` from `index.html` | `hero.jpg` |
+| `./hero.jpg` from `sub/page.html` | `sub/hero.jpg` |
+| `../common.css` from `sub/page.html` | `common.css` |
+| `/assets/logo.png` (root-absolute) | `assets/logo.png` |
+| `https://cdn.example.com/x.js` | unchanged (external) |
+| `data:image/png;base64,...` | unchanged (inline) |
+
+**Parent-directory escapes are a hard error at upload time.** `<img src="../../outside/foo.jpg">` will fail the static scan — your deck must be self-contained within its root.
+
+## CDN dependencies (external URLs)
+
+External `https://` URLs pass through unchanged and don't count against your storage quota. three.js from `unpkg.com`, Google Fonts, your company logo hosted on a public CDN — all fine. Just be aware:
+
+- If the CDN goes down, your deck breaks.
+- The viewer's sandbox + CSP allow `https:` for images, scripts, styles, fonts, and `connect-src`. Anything weirder (a WebSocket to a non-TLS host, a `ws://` stream, etc.) will be blocked by CSP.
+
+For typography specifically — when to pick CDN fonts vs. bundling `.woff2` files inside the deck — see [Custom fonts](/guides/custom-fonts).
+
+## Static scan (pre-upload warnings)
+
+Before uploading, the CLI scans your HTML + CSS for common reference patterns (`src=`, `href=`, CSS `url(...)`, `@import`) and classifies each:
+
+- **External** (`http://`, `https://`, `//`, `data:`, `blob:`) — ignored, always fine.
+- **Parent escape** (`../`) — hard error.
+- **Relative (resolved, file exists)** — silent, good.
+- **Relative (resolved, file doesn't exist in the uploaded set)** — **warning** by default, **error** with `--strict`.
+
+Warnings don't block the upload because runtime-built URLs (`img.src = './images/' + id + '.jpg'`) always escape static detection. The scan catches typos and forgotten files, not every possible broken reference. Test your uploaded URL in a browser.
+
+Example CLI output:
+
+```
+⚠  index.html:42  "./images/hero2.png"  file not found in deck: images/hero2.png
+⚠  styles.css:18  "./missing.svg"       file not found in deck: missing.svg
+
+  (upload proceeds — use --strict to fail on warnings)
+```
+
+## Content-Type detection
+
+MIME types are detected from file extensions and shipped in the manifest, so the browser gets the right `Content-Type` header on every response. A few overrides make sure non-obvious formats work:
+
+- `.glb` → `model/gltf-binary`
+- `.gltf` → `model/gltf+json`
+- `.usdz` → `model/vnd.usdz+zip`
+- `.glsl` / `.wgsl` → `text/plain; charset=utf-8` (shader source)
+- `.hdr` → `image/vnd.radiance` (HDR environment maps)
+
+If you hit a format that's served as `application/octet-stream`, file an issue — the override table is small and easy to extend.
+
+## Video and big files: Range requests
+
+Every asset response advertises `Accept-Ranges: bytes`. `<video>` tags seek correctly because the browser can request byte ranges. The viewer caps each Range response at 50 MB per request to prevent memory spikes, and `<video src="./demo.mp4">` just works.
+
+```html
+<video src="./video/demo.mp4" controls preload="metadata"></video>
+```
+
+## Dedup on update
+
+Because assets are content-addressed (stored by SHA-256 of their contents), an update that changes only one image re-uploads only that image. The CLI output makes this visible:
+
+```text
+Assets uploaded: 1
+Assets deduped:  12
+Total bytes:     194 MB
+```
+
+On the backend, storage grows by the size of the ONE new blob plus the tiny new manifest — not by 194 MB.
+
+## Size limits
+
+Plan-dependent. See [Presentations → Size and file-count caps](/concepts/presentations#size-and-file-count-caps) for the full table.
+
+## Example: three.js glTF viewer
+
+```
+deck/
+├── index.html
+├── styles.css
+└── three/
+    ├── scene.js      (imports three.js from CDN, loads ./model.glb)
+    └── model.glb
+```
+
+`index.html`:
+
+```html
+<!doctype html>
+<html>
+<head><link rel="stylesheet" href="./styles.css"></head>
+<body>
+  <div id="scene" style="width: 100%; height: 480px;"></div>
+  <script type="module">
+    import { buildScene } from './three/scene.js';
+    buildScene(document.getElementById('scene'));
+  </script>
+</body>
+</html>
+```
+
+`three/scene.js`:
+
+```js
+import * as THREE from 'https://unpkg.com/three@0.160/build/three.module.js';
+import { GLTFLoader } from 'https://unpkg.com/three@0.160/examples/jsm/loaders/GLTFLoader.js';
+
+export function buildScene(container) {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight);
+  camera.position.z = 3;
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  container.appendChild(renderer.domElement);
+
+  // Relative URL resolves to /share/{presentationId}/three/model.glb — served from
+  // Slideless with the correct content-type (model/gltf-binary) and caching.
+  new GLTFLoader().load('./model.glb', (gltf) => {
+    scene.add(gltf.scene);
+    renderer.render(scene, camera);
+  });
+}
+```
+
+Upload:
+
+```bash
+slideless push ./deck --title "3D demo"
+```
+
+That's it. The glTF loads from your Slideless CDN, three.js loads from unpkg.

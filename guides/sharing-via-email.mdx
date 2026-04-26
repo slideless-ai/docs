@@ -1,0 +1,152 @@
+---
+title: "Send a presentation by email"
+description: "Email a shared slideless presentation to one or more recipients. Each recipient gets a unique tracked link so you can see who opened the deck."
+---
+
+## TL;DR
+
+```bash
+slideless share-email <presentationId> --to alice@example.com
+```
+
+This emails the recipient a branded message with a unique tracked link to the presentation at `<presentationId>`. Run `slideless push` (and then `slideless share <id>` if you also want a persistent viewer URL) first if you don't have a `presentationId` yet.
+
+## What this does
+
+- Sends a nicely branded email (via Resend, from `noreply@mail.slideless.ai`) to 1–20 recipients
+- By default, **mints a unique named token per recipient** so per-recipient open analytics come for free (via `accessCount` / `lastAccessedAt` on each token)
+- Records every send in the audit log, one entry per recipient, visible in the dashboard
+
+If you'd rather send the same link to everyone (shared view count, one `Revoke` click kills all of them), pass `--token-id <existing-id>` to reuse an existing token instead of minting new ones.
+
+## Prerequisites
+
+- A presentation already uploaded — you need a `presentationId`. Get one with [`slideless push`](/cli/commands#slideless-push-path) or from the dashboard.
+- An authenticated CLI session: [`slideless auth login-request` + `login-complete`](/cli/auth), or `slideless login` to paste a dashboard key.
+- The active key needs `presentations:write` scope.
+
+## From the CLI
+
+### Single recipient, no message
+
+```bash
+slideless share-email 01a3b2c4d5e6f7 --to alice@example.com
+```
+
+### Multiple recipients with a personal note
+
+```bash
+slideless share-email 01a3b2c4d5e6f7 \
+  --to alice@example.com \
+  --to bob@example.com \
+  --to carol@example.com \
+  --message "Here's the Q2 deck we talked about — would love your thoughts before Friday." \
+  --json
+```
+
+### Reuse a single existing link
+
+If you already have a token (e.g. one named `"Newsletter subscribers"`), you can send that one to everyone instead of minting per-recipient tokens:
+
+```bash
+slideless share-email 01a3b2c4d5e6f7 \
+  --to alice@example.com \
+  --token-id 01a3c9d8e7f6g5 \
+  --subject "Q2 pitch — Acme Inc" \
+  --json
+```
+
+Tradeoff: you lose per-recipient tracking (all views roll up into one counter), but you can revoke the whole thing with a single `Revoke` click in the dashboard.
+
+## From the plugin (Claude Code / Cursor)
+
+Invoke the `share-presentation-email` skill after `share-presentation`. Give it the `share_id`, an `emails` array, and an optional `message`:
+
+```
+> /slideless:share-presentation-email
+  share_id: 01a3b2c4d5e6f7
+  emails: ["alice@example.com", "bob@example.com"]
+  message: "Here's the Q2 deck — would love your take."
+```
+
+The skill wraps `slideless share-email --json` under the hood. It surfaces a per-recipient summary, and if some addresses fail (bad syntax, Resend rejection), it tells you which and why.
+
+## From the dashboard
+
+On any presentation detail page, click **Share via email** in the header. The modal:
+
+1. Lets you add recipients (chips input — Enter/comma/Tab to add)
+2. Optional custom subject (falls back to `"<your email> shared: <title>"`)
+3. Optional personal note (≤2000 chars)
+4. By default, mints a per-recipient tracked token. If you already have active tokens, you can pick one to reuse instead.
+
+After sending, the modal shows a per-recipient sent/failed breakdown — refresh the tokens table and you'll see the new per-recipient tokens with their own access counts.
+
+## Response shape (success)
+
+```json
+{
+  "success": true,
+  "data": {
+    "presentationId": "01a3b2c4d5e6f7",
+    "sent": [
+      {
+        "email": "alice@example.com",
+        "tokenId": "01a3c9d8e7f6g5",
+        "resendMessageId": "re_abc123",
+        "shareUrl": "https://app.slideless.ai/share/01a3b2c4d5e6f7?token=..."
+      }
+    ],
+    "failed": [
+      { "email": "bob@bad", "code": "invalid-email", "message": "Not a valid email address." }
+    ],
+    "summary": { "total": 2, "sent": 1, "failed": 1 }
+  }
+}
+```
+
+Note: `failed[]` is a **per-recipient** list inside an otherwise-successful response. The call only returns `success: false` when *zero* emails could be attempted (preflight failure like auth or permission).
+
+## Limits
+
+| Limit | Value |
+|---|---|
+| Recipients per call | 20 |
+| Personal message length | 2000 characters |
+| Custom subject length | 200 characters |
+| Deck size (via `push`) | Plan-dependent — free tier is 50 MB/file, 250 MB total. See [Presentations](/concepts/presentations#size-and-file-count-caps). |
+
+If you need to send to more than 20 addresses, split into batches and call the command multiple times.
+
+## Per-recipient analytics
+
+Each recipient's named token shows up in the dashboard's **Share links** table, with its own `accessCount` and `lastAccessedAt`. To query programmatically:
+
+```bash
+slideless get <presentationId> --json | jq '.tokens[] | {name, accessCount, lastAccessedAt}'
+```
+
+Revoking a single recipient's token (dashboard → Share links → trash icon, or [`POST /unsharePresentation`](/api-reference/unshare-presentation) with `--token <tokenId>`) kills the link *for that person only* — everyone else keeps working.
+
+## Troubleshooting
+
+Every failure includes `error.code`, `error.message`, and `error.nextAction`. The `nextAction` field is written for agents and humans alike — it tells you exactly what to try next.
+
+| `error.code` | When | What to do |
+|---|---|---|
+| `unauthenticated` | Missing or invalid API key | Run `slideless auth login-request` + `login-complete`, or pass `--api-key`. |
+| `permission-denied` | Key doesn't own the share | Verify the key belongs to the org that owns `presentationId`. |
+| `not-found` | `presentationId` doesn't exist | Double-check the id. If just created, retry once after 2s. |
+| `missing-recipients` | No `--to` flags | Add one or more recipients. |
+| `too-many-recipients` | >20 recipients | Split into batches of ≤20. |
+| `message-too-long` | `--message` >2000 chars | Shorten or omit. |
+| `invalid-email` | Bad email syntax | Per-recipient (lands in `failed[]`). Show the user which addresses were rejected. |
+| `email-send-failed` | Resend API failure | Per-recipient. Retry once; if persistent, Resend is having issues. |
+| `rate-limited` | Too many calls | Back off ~30s, retry. |
+| `internal` | Backend 5xx | Retry once; report with `presentationId` if it persists. |
+
+## Related
+
+- [`slideless push`](/cli/commands#slideless-push-path) — upload the presentation first
+- [Share tokens](/concepts/share-tokens) — how the per-recipient token model works
+- [Plugin skill: `share-presentation-email`](/skills/overview) — invoke this from Claude Code / Cursor

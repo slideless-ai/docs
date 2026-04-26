@@ -19,24 +19,26 @@ The OTP flow is two calls: one that emails a 6-digit code, one that consumes the
 
 ## Signup
 
-### Minimal (email + code)
+### Minimal (email + code + first name)
 
 ```bash
 slideless auth signup-request --email you@example.com
 # check inbox, then:
-slideless auth signup-complete --email you@example.com --code 123456
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 ```
 
-The resulting organization is named `"My Organization"`. You can rename it later from the dashboard.
+`--first-name` is required — it's stored as your display name and used in onboarding emails. If you omit it, the CLI fails fast with a clear error. The resulting organization is named `"Alex's workspace"` by default; pass `--company` to override or rename later from the dashboard.
 
 ### With company details
 
-Everything beyond `--email` + `--code` is optional and mapped straight onto the new organization document.
+Everything beyond `--email` + `--code` + `--first-name` is optional and mapped straight onto the new user / organization document.
 
 ```bash
 slideless auth signup-complete \
   --email you@example.com \
   --code 123456 \
+  --first-name "Alex" \
+  --last-name "Morgan" \
   --company "Acme" \
   --description "We make widgets" \
   --brand-primary "#0a0a0a" \
@@ -51,16 +53,16 @@ Logo rules: PNG, JPEG, WebP, or SVG; max 2 MB. The CLI base64-encodes it for you
 ### JSON output
 
 ```bash
-slideless auth signup-complete --email you@example.com --code 123456 --json
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex" --json
 ```
 
 ```json
 {
   "success": true,
   "data": {
-    "profileName": "my-organization",
+    "profileName": "alexs-workspace",
     "organizationId": "4XYwOrZ8...",
-    "organizationName": "My Organization",
+    "organizationName": "Alex's workspace",
     "apiKey": {
       "keyId": "019da6...",
       "keyPrefix": "cko_O_Q8",
@@ -100,7 +102,9 @@ Signup-specific:
 
 | Flag | Default |
 |---|---|
-| `--company <name>` | `"My Organization"` |
+| `--first-name <name>` | **Required.** Your first name. Used as display name + onboarding greetings. |
+| `--last-name <name>` | — |
+| `--company <name>` | `"<first-name>'s workspace"` |
 | `--description <text>` | — |
 | `--brand-primary <hex>` | — |
 | `--brand-secondary <hex>` | — |
@@ -134,7 +138,7 @@ Every failure returns this shape (both in `--json` output and in the structured 
 The `nextAction` field is designed to be acted on programmatically. For example:
 
 ```bash
-slideless auth signup-complete --email ... --code ... --json \
+slideless auth signup-complete --email ... --code ... --first-name ... --json \
   | jq -r 'select(.success == false) | .error.nextAction'
 ```
 
@@ -152,6 +156,8 @@ slideless auth signup-complete --email ... --code ... --json \
 | `OTP_ALREADY_USED` | 409 | Code consumed in an earlier call | Request a fresh code |
 | `OTP_LOCKED_OUT` | 429 | 5 bad attempts on the same code | Request a fresh code |
 | `OTP_PURPOSE_MISMATCH` | 409 | Signup code used for login or vice versa | Run the matching `-request` |
+| `USER_FIRST_NAME_REQUIRED` | 400 | Missing `--first-name` | Pass `--first-name "<your first name>"` |
+| `USER_NAME_TOO_LONG` | 400 | `--first-name` or `--last-name` over 60 chars | Shorten the offending name |
 | `COMPANY_NAME_TOO_LONG` | 400 | `--company` over 100 chars | Shorten or omit |
 | `BRAND_COLOR_INVALID` | 400 | Non-hex brand color | Use a 6-digit hex (`#1a2b3c`) |
 | `LOGO_TOO_LARGE` / `LOGO_INVALID_FORMAT` / `LOGO_DECODE_FAILED` | 400 | Logo fails size/format/decode validation | Use a PNG/JPEG/WebP/SVG under 2 MB |

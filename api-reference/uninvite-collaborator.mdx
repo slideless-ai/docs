@@ -1,0 +1,41 @@
+---
+title: "POST /uninviteCollaborator"
+description: "Revoke a dev collaborator. Symmetric with inviteCollaborator."
+---
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/uninviteCollaborator
+```
+
+## Authentication
+
+`Authorization: Bearer <key>` — owner only.
+
+## Request body
+
+```json
+{
+  "presentationId": "01HXYZ...",
+  "collaboratorId": "01H..."
+}
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "data": { "success": true, "collaboratorId": "01H..." }
+}
+```
+
+Revocation is immediate — the revoked collaborator's next `push` or `pull` returns 403.
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| 403 | `permission-denied` | Not the owner |
+| 404 | `not-found` | `collaboratorId` doesn't match or belongs to a different presentation |

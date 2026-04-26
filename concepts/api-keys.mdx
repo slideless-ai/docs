@@ -20,7 +20,7 @@ The recommended path is the [`slideless` CLI](/cli/overview). Either approach st
 
 ```bash
 slideless auth signup-request --email you@example.com
-slideless auth signup-complete --email you@example.com --code 123456
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 ```
 
 `signup-complete` creates your account + organization + a `cko_` key and saves it as the active profile, all in one call. For an existing account on a new machine, use `login-request` + `login-complete` instead.
@@ -46,7 +46,7 @@ When you create an organization key, you pick scopes:
 
 | Scope | What it allows |
 |---|---|
-| `presentations:write` | Upload, update, archive presentations |
+| `presentations:write` | Push new content, share/unshare, invite collaborators, delete presentations |
 | `presentations:read` | List your presentations, get presentation metadata |
 
 A key without the relevant scope returns `permission-denied` (HTTP `403`) from the affected endpoint. Pick the narrowest scope set that fits the use case. A script that only lists decks should use `presentations:read` only.

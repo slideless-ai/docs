@@ -1,0 +1,124 @@
+---
+title: "POST /addPresentationToken"
+description: "Mint a new named share token on an existing presentation so you can issue a fresh, separately trackable link to a specific recipient"
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless share <presentationId> --name "Acme"`.
+</Note>
+
+## When to use
+
+Your presentation is already uploaded, and you want a **new share link** for a specific recipient, with:
+
+- its own view count (`accessCount`) — independent of the default token and any other tokens
+- its own URL — stable once issued
+- the ability to revoke *just this recipient* later without disrupting other recipients
+
+Common trigger: sending the same deck to multiple prospects and wanting to know which of them actually opened it.
+
+If you're emailing directly, use [`POST /sharePresentationViaEmail`](/api-reference/share-via-email) instead — it mints per-recipient tokens automatically.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/addPresentationToken
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) — must belong to the presentation's owner |
+| `Content-Type` | `application/json` |
+
+Recommended scope: `presentations:write`.
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `presentationId` | string | yes | The `presentationId` of the existing presentation |
+| `tokenName` | string | yes | Human-readable label. Shown in `getSharedPresentationInfo` and the dashboard. |
+| `versionMode` | object | no | Either `{"type":"latest"}` (default) or `{"type":"pinned","version":N}` where N ≤ current version. See [Versioning](/concepts/versioning). |
+
+Example — default (follows latest):
+
+```json
+{ "presentationId": "0192f1c3-...", "tokenName": "Acme Corp" }
+```
+
+Example — pinned to v2:
+
+```json
+{
+  "presentationId": "0192f1c3-...",
+  "tokenName": "Acme Corp",
+  "versionMode": { "type": "pinned", "version": 2 }
+}
+```
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "tokenId": "0192f1c3-abcd-...",
+    "token": "r2h_cS3eqVg4...",
+    "shareUrl": "https://app.slideless.ai/share/0192f1c3-...?token=r2h_cS3eqVg4..."
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `tokenId` | string | Opaque identifier. Pass it to `unsharePresentation` (with `--token`) to cut off just this recipient. |
+| `token` | string | The raw secret embedded in the URL. Never shown again — store the `shareUrl` instead. |
+| `shareUrl` | string | The link to hand to the recipient. |
+
+## Examples
+
+### curl
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"presentationId":"0192f1c3-...","tokenName":"Acme Corp"}' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/addPresentationToken
+```
+
+### Node.js
+
+```js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/addPresentationToken',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ presentationId: '0192f1c3-...', tokenName: 'Acme Corp' })
+  }
+);
+const { data } = await res.json();
+console.log('Send this URL to the recipient:', data.shareUrl);
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | `presentationId` or `tokenName` missing or wrong type / empty | Send both as non-empty strings |
+| `401` | `unauthenticated` | Missing or invalid API key | Set a valid `Authorization` header |
+| `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
+| `404` | `not-found` | No presentation with that `presentationId` | Verify with `listMyPresentations` |
+| `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
+| `500` | `internal` | Backend error | Retry with exponential backoff |
+
+## Next
+
+- **[POST /unsharePresentation](/api-reference/unshare-presentation)** — Revoke one token, or every token on the deck.
+- **[GET /getSharedPresentationInfo](/api-reference/get-presentation)** — See every token on a presentation with per-token view counts.

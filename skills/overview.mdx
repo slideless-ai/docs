@@ -5,7 +5,7 @@ description: "Agent skills that wrap the slideless CLI for any AI session"
 
 ## What this is
 
-The [`slideless-ai/plugin`](https://github.com/slideless-ai/plugin) repo is an [Open Plugin v1](https://github.com/vercel-labs/open-plugin-spec)-conformant plugin. Once installed, every `slideless-*` skill is available in any compatible agent session (Claude Code, Cursor, …). The agent can generate decks, publish them, update them, list them, and export them, all by name.
+The [`slideless-ai/plugin`](https://github.com/slideless-ai/plugin) repo is an [Open Plugin v1](https://github.com/vercel-labs/open-plugin-spec)-conformant plugin. Once installed, every `slideless-*` skill is available in any compatible agent session (Claude Code, Cursor, …). The agent can generate decks, push them, share them, pull them on another machine, invite collaborators, list them, and export them — all by name.
 
 ### Install
 
@@ -26,7 +26,7 @@ Claude Code also supports its native marketplace flow:
 
 Both paths surface the same `/slideless:*` skills.
 
-The publish-side skills (`share-presentation`, `update-presentation`, `list-presentations`, `get-presentation`, `setup-slideless`) are thin wrappers around the [`slideless` CLI](/cli/overview). They shell out to commands like `slideless share ./deck.html --json` and parse the structured output. The CLI is the canonical interface; the skills make it ergonomic for the agent to use.
+The publish-side skills (`push-presentation`, `pull-presentation`, `share-presentation`, `unshare-presentation`, `delete-presentation`, `invite-collaborator`, `uninvite-collaborator`, `list-presentations`, `get-presentation`, `setup-slideless`) are thin wrappers around the [`slideless` CLI](/cli/overview). They shell out to commands like `slideless push ./my-deck --json` and parse the structured output. The CLI is the canonical interface; the skills make it ergonomic for the agent to use.
 
 The local-only skills (`generate-presentation`, `export-presentation-pdf`) don't touch the backend at all.
 
@@ -45,11 +45,17 @@ Then run `setup-slideless` once to authenticate. The skill prefers the OTP flow 
 | Skill | Purpose | Wraps |
 |---|---|---|
 | **`setup-slideless`** | Bootstrap the CLI. Three branches: **OTP signup** for a fresh account, **OTP login** for an existing one, or paste a dashboard key as fallback. Run once per machine. | `slideless auth signup-request` / `signup-complete`, `login-request` / `login-complete`, or `slideless login` |
-| **`generate-presentation`** | Generate a self-contained HTML presentation in a curated style (`slim-tabbed` for workshop content, `full-deck` for cinematic slides). Outputs a local `.html` file. | None, purely local |
-| **`share-presentation`** | Upload a local HTML file to Slideless and return a public share URL. Optionally update an existing share in place. | `slideless share <path>` (or `slideless update <shareId> <path>`) |
-| **`update-presentation`** | Replace the HTML behind an existing share URL. Same URL, view counts preserved, version bumped. | `slideless update <shareId> <path>` |
-| **`list-presentations`** | List all shared presentations with titles, versions, view counts, and URLs. | `slideless list --json` |
-| **`get-presentation`** | Fetch full metadata for one presentation, including each share token's individual access count and last-accessed time. | `slideless get <shareId> --json` |
+| **`generate-presentation`** | Generate an HTML presentation in a curated style (`slim-tabbed` for workshop content, `full-deck` for cinematic slides). Output is either a single `.html` or a folder with sibling assets, depending on whether the deck needs images/video/3D. | None, purely local |
+| **`push-presentation`** | Upload a deck (folder OR single HTML file). First push creates a new presentation and writes `slideless.json` at the deck root; subsequent pushes from the same folder re-publish to the same `presentationId`. | `slideless push <path>` |
+| **`pull-presentation`** | Download a deck to a local folder (writes `slideless.json` so a subsequent `push` re-publishes in place). Works for owners on another machine and for invited dev collaborators. | `slideless pull <presentationId>` |
+| **`share-presentation`** | Mint a public viewer URL for an existing deck. Trigger phrases: "share a link", "get a public URL". Owner-only. | `slideless share <presentationId>` |
+| **`unshare-presentation`** | Revoke viewer URLs — every token, or one with `--token`. The deck stays editable. Owner-only. | `slideless unshare <presentationId>` |
+| **`delete-presentation`** | Hard-delete a deck: Firestore doc, every version, every asset, every collaborator row. Irreversible. Owner-only. | `slideless delete <presentationId> --yes` |
+| **`invite-collaborator`** | Invite a dev collaborator by email. They gain push + pull access once they have a Slideless account. Owner-only. | `slideless invite <presentationId> --email <addr>` |
+| **`uninvite-collaborator`** | Revoke a dev collaborator. Owner-only. | `slideless uninvite <presentationId> <collabId>` |
+| **`share-presentation-email`** | Email an existing shared presentation to 1–20 recipients. Mints a unique tracked link per recipient by default. Trigger phrase: "send this deck to alice@…". | `slideless share-email <presentationId> --to <email>` |
+| **`list-presentations`** | List every deck you can access — owned plus shared-with-you. Each row includes a `role` column so the agent knows which decks it can edit. | `slideless list --json` |
+| **`get-presentation`** | Fetch full metadata for one presentation, including each share token's individual access count, last-accessed time, and (for owners) the collaborator list. | `slideless get <presentationId> --json` |
 | **`export-presentation-pdf`** | Convert a local HTML deck to a landscape PDF via a bundled Puppeteer runner. Auto-injects print CSS. | None, purely local |
 
 ## A typical session
@@ -63,19 +69,23 @@ Then run `setup-slideless` once to authenticate. The skill prefers the OTP flow 
   → style: full-deck
   → wrote ./q4-results.html
 
-> /skill share-presentation
-  → html_path: ./q4-results.html
+> /skill push-presentation
+  → source_path: ./q4-results          (folder) or ./q4-results.html (single file)
   → title: "Q4 Results"
-  → ran: slideless share ./q4-results.html --title "Q4 Results" --json
+  → ran: slideless push ./q4-results --title "Q4 Results" --json
+  → pushed v1 (presentationId=0192f1c3-...); wrote ./q4-results/slideless.json
+
+> /skill share-presentation
+  → share_id: 0192f1c3-...
+  → ran: slideless share 0192f1c3-... --json
   → published: https://app.slideless.ai/share/0192f1c3-...?token=AbCdEf...
 
 [ ... edit, regenerate, iterate ... ]
 
-> /skill update-presentation
-  → share_id: 0192f1c3-...
-  → html_path: ./q4-results-v2.html
-  → ran: slideless update 0192f1c3-... ./q4-results-v2.html --json
-  → updated to v2 (same URL)
+> /skill push-presentation
+  → source_path: ./q4-results
+  → ran: slideless push ./q4-results --json
+  → pushed v2 (same presentationId, unchanged assets deduplicated)
 
 > /skill get-presentation
   → share_id: 0192f1c3-...
@@ -88,8 +98,14 @@ Each skill lives in its own folder in the plugin repo with a `SKILL.md` describi
 
 - [`setup-slideless/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/setup-slideless/SKILL.md)
 - [`generate-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/generate-presentation/SKILL.md)
+- [`push-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/push-presentation/SKILL.md)
+- [`pull-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/pull-presentation/SKILL.md)
 - [`share-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/share-presentation/SKILL.md)
-- [`update-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/update-presentation/SKILL.md)
+- [`unshare-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/unshare-presentation/SKILL.md)
+- [`delete-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/delete-presentation/SKILL.md)
+- [`invite-collaborator/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/invite-collaborator/SKILL.md)
+- [`uninvite-collaborator/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/uninvite-collaborator/SKILL.md)
+- [`share-presentation-email/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/share-presentation-email/SKILL.md)
 - [`list-presentations/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/list-presentations/SKILL.md)
 - [`get-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/get-presentation/SKILL.md)
 - [`export-presentation-pdf/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/export-presentation-pdf/SKILL.md)
@@ -109,4 +125,5 @@ Each style has a `README.md` (when to pick it), `how-to-build.md` (how to author
 
 - **[CLI overview](/cli/overview)** — The interface skills delegate to.
 - **[Use Slideless with Claude](/guides/with-claude)** — Step-by-step walkthrough of running the loop interactively.
+- **[Use Slideless in Claude Desktop](/integrations/claude-desktop-mcp)** — The non-CLI alternative for browser / desktop Claude users (MCP custom connector).
 - **[Advanced: HTTP API](/api-reference/overview)** — The endpoints the CLI calls.

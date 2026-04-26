@@ -1,0 +1,84 @@
+---
+title: "GET /getPresentationVersion/{presentationId}/{version}"
+description: "Owner-only. Return the manifest (list of files + hashes + content types) for a specific version of a presentation."
+---
+
+<Note>
+Owner-only. This endpoint lets the owner inspect a past version's contents (every file, every hash). Recipients cannot fetch arbitrary versions — they only see what their token's `versionMode` resolves to.
+</Note>
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getPresentationVersion/{presentationId}/{version}
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` (or `cka_…`) — must belong to the presentation's owner |
+
+Required scope: `presentations:read`.
+
+## Path parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `presentationId` | string | Presentation ID |
+| `version` | integer | Version number (1 ≤ version ≤ currentVersion) |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "version": 1,
+    "title": "Q3 investor deck",
+    "entryPath": "index.html",
+    "files": [
+      {
+        "path": "index.html",
+        "sha256": "6d79e9a12a90f61df1c99d60c34cafc7d9668b96d8d20d993afec785b0d46875",
+        "size": 1366,
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "path": "styles.css",
+        "sha256": "c3d6ce7c672be2d98d555bed4504b944c9730ec33baf35b778cc049cf928ccb0",
+        "size": 994,
+        "contentType": "text/css; charset=utf-8"
+      },
+      {
+        "path": "images/hero.svg",
+        "sha256": "4edd6a4b20278337c9cd35ef2b71e375522abd1c7563301dca7eebac31b5665e",
+        "size": 723,
+        "contentType": "image/svg+xml"
+      }
+    ],
+    "createdAt": "2026-04-23T13:11:16.045Z",
+    "createdBy": "xuCsp5SZoMTmQJprofJtMQNQGY23"
+  }
+}
+```
+
+`path` is the literal path within the deck (preserving the author's folder structure). `sha256` is the content-addressed key for the blob store.
+
+## Errors
+
+| Status | Code | Cause |
+|---|---|---|
+| `400` | `invalid-argument` | Path is not `/{presentationId}/{version}` or `version` isn't a positive integer |
+| `401` | `unauthenticated` | Missing/invalid API key |
+| `403` | `permission-denied` | Not the presentation's owner |
+| `404` | `not-found` | `presentationId` doesn't exist, `version` exceeds `currentVersion`, or manifest file missing |
+
+## What this does NOT do
+
+- It does NOT render the version. There's no public URL for "view v2 of this deck" — that would break pinning. The owner can reconstruct v2 locally by downloading each blob (using the sha256 keys) via the dashboard's history view.
+
+## Next
+
+- **[GET /listPresentationVersions](/api-reference/list-presentation-versions)** — discover what versions exist.
+- **[Versioning](/concepts/versioning)** — why history is owner-only.

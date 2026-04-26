@@ -43,9 +43,9 @@ For an organization key (`cko_`):
     "organizationName": "Romain's workspace",
     "createdAt": "2026-04-15T10:00:00.000Z",
     "expiresAt": null,
-    "lastUsedAt": "2026-04-19T09:12:00.000Z"
-  },
-  "requestId": "0192f1c3-..."
+    "lastUsedAt": "2026-04-19T09:12:00.000Z",
+    "requestId": "0192f1c3-..."
+  }
 }
 ```
 
@@ -61,27 +61,27 @@ For an admin key (`cka_`), `organizationId` and `organizationName` are `null`; `
 | `data.organizationId` | string \| null | The org context (null for admin keys) |
 | `data.organizationName` | string \| null | The org's display name (null for admin keys) |
 | `data.createdAt`, `data.expiresAt`, `data.lastUsedAt` | ISO 8601 string \| null | Timestamps |
-| `requestId` | UUIDv7 string | Trace ID — include in support requests |
+| `data.requestId` | UUIDv7 string | Trace ID — include in support requests |
 
 ## Errors
 
 | Status | Code | Cause | Fix |
 |---|---|---|---|
-| `401` | (in `error.message`) | Missing, malformed, or revoked key | Send a valid `cko_` or `cka_` value in `Authorization` |
-| `405` | (in `error.message`) | Used GET/PUT/etc. | Use `POST` |
-| `500` | (in `error.message`) | Backend error fetching metadata | Retry; if persistent, include `requestId` in support request |
+| `401` | `unauthenticated` | Missing, malformed, or revoked key | Send a valid `cko_` or `cka_` value in `Authorization` |
+| `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
+| `500` | `internal` | Backend error fetching metadata | Retry; if persistent, include `requestId` in support request |
 
-Error response shape:
+Error response shape (same envelope as every other CLI-facing endpoint):
 
 ```json
 {
   "success": false,
-  "error": { "message": "Invalid or missing API key." },
-  "requestId": "0192f1c3-..."
+  "error": {
+    "code": "unauthenticated",
+    "message": "Invalid or missing API key."
+  }
 }
 ```
-
-This is slightly different from the `{ error, code }` shape used by the share endpoints — handle both formats if your client code is generic.
 
 ## Examples
 

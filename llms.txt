@@ -1,75 +1,97 @@
 # Slideless
 
-> Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. The primary interface is the `slideless` CLI (npm package). One command (`slideless share ./deck.html --title "..."`) uploads the HTML and returns a public `shareUrl`. Anyone with the link opens the deck in any browser, no install, no login. View counts are tracked per share token. The same URL can be re-published with `slideless update <shareId> ./deck.html` without breaking the link, and view counts are preserved.
+> Slideless turns an HTML deck — a single self-contained file OR a folder with images, video, 3D assets, CSS, JS — into a public, trackable, updatable presentation URL. The primary interface is the `slideless` CLI (npm package). Two commands do the work: `slideless push ./deck --title "…"` uploads the deck (it writes a local `slideless.json` so subsequent `slideless push` calls from inside that folder re-publish in place), and `slideless share <id>` mints a public viewer URL. Anyone with the link opens the deck in any browser — assets load natively, no install, no login. View counts are tracked per share token. Decks can also be pulled back down (`slideless pull <id>`) from another machine or by an invited dev collaborator — content-addressed storage deduplicates unchanged files across versions.
 
 The product solves a specific problem: presentation files are heavy, locked to specific apps, and lose information the moment you send them. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless replaces the file with a hosted page, a URL you can drop into Slack, paste into an email, or post on a website.
 
-Slideless is a side product by Codika. The backend is a standalone Firebase project (`slideless-ai`, GCP region `europe-west1`), independent of the Codika platform. The CLI wraps every backend operation; the underlying HTTP API has six endpoints and is documented as an "Advanced" appendix for users who can't run the CLI. API keys use the `cko_` prefix for organization keys; the CLI handles the auth header for you after `slideless login`.
+Slideless is a side product by Codika. The backend is a standalone Firebase project (`slideless-ai`, GCP region `europe-west1`). The CLI wraps every backend operation; the HTTP API is documented for when you can't run the CLI. API keys use the `cko_` prefix for organization keys; the CLI handles the auth header for you after `slideless login`.
 
 ## Instructions for AI Agents
 
 When helping users with Slideless:
 
-- **Lead with the CLI.** The right answer to "how do I upload / update / list / verify ..." is `slideless <cmd>`, not curl. Show curl only if the user explicitly cannot run the CLI.
+- **Lead with the CLI.** The right answer to "how do I upload / publish / list / verify ..." is `slideless <cmd>`, not curl. Show curl only if the user explicitly cannot run the CLI.
 - Install with `npm install -g slideless`. Switch profiles with `slideless use <name>`.
-- **Bootstrap without a browser.** If the user has no API key yet (or is an agent with no prior state), run the OTP flow: `slideless auth signup-request --email <email>`, then on receipt of the 6-digit code `slideless auth signup-complete --email <email> --code <code>`. For an existing account on a new machine use `login-request` + `login-complete`. If signup returns `USER_ALREADY_HAS_ORGANIZATION`, switch to login. If login returns `USER_NOT_FOUND`, switch to signup. A `cko_` key is saved to `~/.config/slideless/config.json` and set active. `slideless login --api-key cko_...` is still supported for pasted keys.
+- **Bootstrap without a browser.** If the user has no API key yet (or is an agent with no prior state), run the OTP flow: `slideless auth signup-request --email <email>`, then on receipt of the 6-digit code `slideless auth signup-complete --email <email> --code <code> --first-name "<first-name>"` (`--first-name` is required and drives the onboarding emails + default workspace name; `--last-name` is optional). For an existing account on a new machine use `login-request` + `login-complete`. A `cko_` key is saved to `~/.config/slideless/config.json` and set active. `slideless login --api-key cko_...` is still supported for pasted keys.
 - Every CLI command supports `--json` with a stable `{ success, data | error }` shape. Use this in scripts and CI.
-- Error payloads from `slideless auth ...` include a `nextAction` string designed to be acted on programmatically (`jq -r '.error.nextAction'`). Pass it through to the user verbatim when surfacing failures.
-- For raw HTTP calls (only when the CLI isn't an option): the auth header is `Authorization: Bearer cko_…`. The bearer prefix is required.
-- The API base URL is `https://europe-west1-slideless-ai.cloudfunctions.net`. There is no API versioning in v1.
-- The share URL recipients open is `https://app.slideless.ai/share/{shareId}?token={token}`, NOT the raw Cloud Function URL `getSharedPresentation/{shareId}?token=…`. The share URL renders the deck inside the Slideless viewer chrome.
-- HTML is capped at 10 MB per upload/update.
-- Use `slideless share` (or `POST /uploadSharedPresentation`) to create a NEW presentation. Use `slideless update <shareId>` (or `POST /updateSharedPresentation`) to re-publish to an EXISTING `shareId`. The URL stays the same and the view count is preserved.
-- Share tokens are 384 bits of entropy (48 random bytes, base64url). They are designed to be safe in URLs. Don't shorten share URLs through public link shorteners.
-- A presentation can have multiple named tokens (`default`, `John at Acme`, etc.). Each has its own view counter. Revoking one token never affects others.
-- Once a presentation is archived (`archived: true`), it cannot be updated. There is no un-archive in v1.
-- The plugin lives at `slideless-ai/plugin` (Open Plugin v1). Install with `npx plugins add slideless-ai/plugin` for any compatible host, or `/plugin marketplace add slideless-ai/plugin` + `/plugin install slideless@plugin` in Claude Code. Publish-side skills delegate to the CLI; install the CLI on the same machine.
+- The API base URL is `https://europe-west1-slideless-ai.cloudfunctions.net`. There is no URL versioning.
+- The share URL recipients open is `https://app.slideless.ai/share/{presentationId}?token={token}`. The raw Cloud Function URL `getSharedPresentation/{presentationId}/_t/{token}/` is only used when embedding the deck in a custom iframe.
+- **A deck is a folder OR a single HTML file.** `slideless push ./folder --title "..."` walks the folder, hashes every file, uploads only the ones the backend doesn't have, and commits a manifest. `slideless push ./deck.html --title "..."` uploads a one-file deck. Single-file is a special case of folder mode.
+- **Folder model is "exactly like a website":** relative paths `./hero.jpg`, `./images/`, `./three/scene.js` resolve natively. Parent-directory escapes (`../outside/x.jpg`) are hard errors — decks must be self-contained. External CDN URLs (`https://unpkg.com/...`, Google Fonts) work unchanged.
+- **Publish is a separate step from upload.** A fresh `push` creates an unshared deck. Run `slideless share <id>` to mint a public viewer URL. You can unshare later with `slideless unshare <id>` (revokes every token) or `slideless unshare <id> --token <tokenId>` (just one). `slideless delete <id>` hard-removes the deck; there is no archive state anymore.
+- **Updating in place** uses the same `slideless push` command. On the second push from a folder that was previously pushed or pulled, the CLI reads `slideless.json` and re-publishes to the same `presentationId` — version auto-bumps, tokens + view counts preserved, unchanged assets deduped by SHA-256. `slideless.json` is added to the built-in ignore list so it never uploads itself. `slideless push --force` bypasses the optimistic-concurrency check.
+- **Cross-device and collaboration.** `slideless pull <id>` downloads a deck (and writes `slideless.json`) so the owner can edit on another machine, or so a dev collaborator can work on it. `slideless invite <id> --email <addr>` grants dev (push + pull) access to another user; the invite auto-claims on signup if the invitee has no account yet. `slideless uninvite <id> <collabId>` revokes the collaborator. Plan limits are spent by the pusher's org, not the owner's.
+- **Versioning is append-only.** Every push keeps the old version. Tokens have a `versionMode`: either `latest` (auto-follows updates, default) or `pinned` (frozen on version N). `slideless pin <presentationId> <tokenId> --to-version N` freezes a specific recipient; `--latest` puts them back on auto. Recipients CANNOT see past versions by URL manipulation — there is no `?v=` override. Only the owner can browse history.
+- **Caps are plan-dependent.** Free tier: 50 MB per file, 250 MB per presentation, 10 MB per HTML file, 500 files max. Starter/Pro/Business/Enterprise raise these. Exceeding returns `413 payload-too-large`.
+- To email a presentation to recipients, use `slideless share-email <presentationId> --to <email>` (or `POST /sharePresentationViaEmail`). Mints a unique named token per recipient for per-recipient tracking. Max 20 recipients per call.
+- Share tokens are 384 bits of entropy (48 random bytes, base64url). Safe in URLs, constant-time comparison, generic 404s to prevent share-ID enumeration.
+- **Two states, no archive.** A deck either exists or it's deleted. `unshare` stops serving public URLs but keeps the deck editable; `delete` hard-removes the Firestore doc, every version, every asset, every collaborator row. There is no undo.
+- The plugin lives at `slideless-ai/plugin` (Open Plugin v1). Install with `npx plugins add slideless-ai/plugin` for any compatible host, or `/plugin marketplace add slideless-ai/plugin` + `/plugin install slideless@plugin` in Claude Code. Publish-side skills delegate to the CLI.
+- **Dashboard is CLI-only for uploads.** The v3 dashboard does NOT have a "paste HTML and upload" form — uploads go through `slideless push`. Dashboard handles browsing, previewing, token management, pinning, sharing/unsharing, collaborator invites, and deletion.
 
 ## Getting Started
 
-- [What is Slideless?](https://docs.slideless.ai/): Product overview, problem solved, how to use the CLI, architecture
-- [Quickstart](https://docs.slideless.ai/quickstart): Install the CLI, OTP signup (`slideless auth signup-request` / `signup-complete`), `slideless share ./deck.html`, open the share URL. Dashboard-paste flow is included as a collapsible alternative.
+- [What is Slideless?](https://docs.slideless.ai/): Product overview, problem solved, how to use the CLI, architecture.
+- [Quickstart](https://docs.slideless.ai/quickstart): Install the CLI, OTP signup, upload a single HTML file OR a folder with assets, open the share URL, pin a token.
 
 ## Why Slideless
 
-- [HTML opens anywhere](https://docs.slideless.ai/why-slideless/portable): The case for HTML over PowerPoint/Keynote/Slides. No install, no account, no font fallback, no version drift, one-tap open. Publish with one CLI command.
-- [Designed for any device](https://docs.slideless.ai/why-slideless/dynamic): Why responsive HTML beats fixed 16:9 slides. Phones, tablets, projectors, 4K monitors, fullscreen API, touch interactions, dark mode.
-- [Generate, share, update from a terminal](https://docs.slideless.ai/why-slideless/shareable): The Claude + Slideless loop. AI generates HTML, `slideless share` publishes, `slideless update` re-publishes to the same URL. No `final_v3_FINAL.pptx`.
+- [HTML opens anywhere](https://docs.slideless.ai/why-slideless/portable): The case for HTML over PowerPoint/Keynote/Slides.
+- [Designed for any device](https://docs.slideless.ai/why-slideless/dynamic): Why responsive HTML beats fixed 16:9 slides.
+- [Generate, share, update from a terminal](https://docs.slideless.ai/why-slideless/shareable): The agent loop.
 
 ## Concepts
 
-- [Presentations](https://docs.slideless.ai/concepts/presentations): Anatomy of a presentation (id, ownerId, version, archived, totalViews), lifecycle (created → updated×N → archived), 10 MB limit, what stays stable across updates. CLI commands for each transition.
-- [Share tokens](https://docs.slideless.ai/concepts/share-tokens): Why per-recipient tokens, the `default` token, named tokens, revocation, security guarantees (384 bits entropy, constant-time comparison, generic 404s to prevent enumeration).
-- [API keys](https://docs.slideless.ai/concepts/api-keys): Two key types (`cko_` org, `cka_` admin), scopes (`presentations:write`, `presentations:read`), how the CLI stores and uses them via `slideless login`, lifecycle, 20-keys-per-org limit, what's stored vs what isn't (SHA-256 hash only).
+- [Presentations](https://docs.slideless.ai/concepts/presentations): Deck = single HTML file or folder. Plan-dependent caps (free: 50 MB/file, 250 MB total, 500 files). Content-addressed storage, dedup across versions, full lifecycle (push → share → unshare → delete).
+- [Lifecycle](https://docs.slideless.ai/concepts/lifecycle): Two states — exists vs deleted. Why there is no archive. The difference between `unshare` and `delete`.
+- [Assets](https://docs.slideless.ai/concepts/assets): How images, video, 3D models, shaders, CSS, JS are stored (content-addressed by SHA-256), MIME type detection, relative path rules, Range requests for video, hash verification.
+- [Versioning](https://docs.slideless.ai/concepts/versioning): Append-only version history. Token `versionMode` = `latest` or `pinned`. `slideless pin` to freeze a recipient on a specific version. Recipients cannot see past versions; only the owner can browse history.
+- [Share tokens](https://docs.slideless.ai/concepts/share-tokens): Per-recipient tokens, named labels, independent revocation, 384-bit entropy, constant-time comparison.
+- [Collaboration](https://docs.slideless.ai/concepts/collaboration): Dev collaborators, email-based invites, cross-device push/pull, `slideless.json`, the conflict model, quota-on-pusher-org policy.
+- [API keys](https://docs.slideless.ai/concepts/api-keys): `cko_` org keys, `cka_` admin, scopes (`presentations:write`, `presentations:read`), 20-keys-per-org limit.
 
 ## CLI
 
-- [Overview](https://docs.slideless.ai/cli/overview): Why the CLI is the primary interface. Stable JSON output, multi-profile support, decoded error codes.
-- [Installation](https://docs.slideless.ai/cli/installation): `npm install -g slideless`, two auth tabs (OTP or paste), verify.
-- [Configuration](https://docs.slideless.ai/cli/configuration): Config file at `~/.config/slideless/config.json`, profiles, env vars (`SLIDELESS_API_KEY`, `SLIDELESS_API_BASE_URL`), resolution chain.
-- [Auth (OTP signup & login)](https://docs.slideless.ai/cli/auth): `slideless auth signup-request` / `signup-complete` for new users, `login-request` / `login-complete` for returning ones. Two-step flow, emailed 6-digit code, full error-code table with `nextAction` strings, 30-second resend cooldown. Agent-friendly.
-- [Command reference](https://docs.slideless.ai/cli/commands): Every command (`auth signup-request|signup-complete|login-request|login-complete`, `login`, `whoami`, `verify`, `use`, `logout`, `share`, `update`, `list`, `get`, `config show/set/clear`) with flags, examples, JSON shapes, and error codes.
+- [Overview](https://docs.slideless.ai/cli/overview): Why the CLI is the primary interface.
+- [Installation](https://docs.slideless.ai/cli/installation): `npm install -g slideless`.
+- [Configuration](https://docs.slideless.ai/cli/configuration): Config file at `~/.config/slideless/config.json`, profiles, env vars.
+- [Auth (OTP signup & login)](https://docs.slideless.ai/cli/auth): `slideless auth signup-request/complete` and `login-request/complete`.
+- [Command reference](https://docs.slideless.ai/cli/commands): Every command — `push`, `pull`, `share`, `unshare`, `invite`, `uninvite`, `delete`, `list`, `get`, `pin`, `share-email`, `whoami`, `verify`, `use`, `login`, `logout`, `config *`, `auth *`.
 
 ## Guides
 
-- [Use Slideless with Claude](https://docs.slideless.ai/guides/with-claude): Install the CLI, install the plugin (`npx plugins add slideless-ai/plugin`), run `setup-slideless`, generate + share + update + list + get from any Claude session. Skills delegate to the CLI.
-- [Upload from a script or CI](https://docs.slideless.ai/guides/uploading-via-api): CLI-driven CI pattern. Install with npm, authenticate via `SLIDELESS_API_KEY` env var, `slideless share --json` and pipe through `jq`. Optional curl fallback if the CLI can't be installed.
-- [Update a presentation in place](https://docs.slideless.ai/guides/updating-in-place): `slideless update <shareId> <path>` re-publishes without breaking the URL or losing view counts. What stays the same, what bumps, why archived presentations can't be updated.
+- [Use Slideless with Claude](https://docs.slideless.ai/guides/with-claude): Install the CLI + plugin, run `setup-slideless`, generate / push / share / iterate with Claude.
+- [Working with assets](https://docs.slideless.ai/guides/working-with-assets): Folder layouts, `.slidelessignore`, relative path rules, static scan, Range requests, dedup behavior. Three.js glTF example.
+- [Custom fonts](https://docs.slideless.ai/guides/custom-fonts): When to pick CDN fonts (Google Fonts, Fontshare) vs. bundled `@font-face` `.woff2` files. Folder layout, CSS snippets, supported formats, troubleshooting.
+- [Upload from a script or CI](https://docs.slideless.ai/guides/uploading-via-api): CLI-driven CI pattern, `SLIDELESS_API_KEY` env var, `--json` + `jq`, `--strict` mode, the three-step upload protocol under the hood.
+- [Send a presentation by email](https://docs.slideless.ai/guides/sharing-via-email): `slideless share-email`, per-recipient tracked tokens.
 
 ## Plugin Skills
 
-- [Plugin skills overview](https://docs.slideless.ai/skills/overview): The seven agent skills. `setup-slideless` (wraps `slideless login`), `generate-presentation` (local HTML generation in `slim-tabbed` or `full-deck` styles), `share-presentation` (wraps `slideless share`), `update-presentation` (wraps `slideless update`), `list-presentations` (wraps `slideless list`), `get-presentation` (wraps `slideless get`), `export-presentation-pdf` (local Puppeteer). Each skill links to its `SKILL.md` source on GitHub.
+- [Plugin skills overview](https://docs.slideless.ai/skills/overview): `setup-slideless`, `generate-presentation` (single file OR folder output), `push-presentation`, `pull-presentation`, `share-presentation`, `unshare-presentation`, `delete-presentation`, `invite-collaborator`, `uninvite-collaborator`, `list-presentations`, `get-presentation`, `share-presentation-email`, `export-presentation-pdf`.
 
 ## Advanced: HTTP API
 
-These pages document the underlying HTTP endpoints. Each carries a `<Note>` callout pointing to the equivalent CLI command. Use these only when the CLI is not an option.
+The upload flow is three endpoints — precheck, upload each missing blob, commit manifest. Unchanged files dedupe automatically.
 
-- [API overview](https://docs.slideless.ai/api-reference/overview): Base URL, authentication, error format `{ error, code }`, status codes (200/400/401/403/404/405/410/413/500), endpoint index, CORS, idempotency notes.
-- [Authentication](https://docs.slideless.ai/api-reference/authentication): The `Authorization: Bearer` header, key prefixes (`cko_` / `cka_`), scopes, verifying a key with `verifyApiKey`, error codes. CLI alternative: `slideless login` + `slideless verify`.
-- [CLI auth endpoints](https://docs.slideless.ai/api-reference/cli-auth): `POST /cliRequestSignupOtp`, `POST /cliCompleteSignup`, `POST /cliRequestLoginOtp`, `POST /cliCompleteLogin`. Public (no Authorization header). Used by `slideless auth ...` to create a Slideless account and mint a `cko_` key end-to-end from the terminal. Single-organization-per-user invariant enforced at both endpoints.
-- [POST /uploadSharedPresentation](https://docs.slideless.ai/api-reference/upload-presentation): Create a new presentation. Body `{ title, html }` (≤ 10 MB), response `{ shareId, tokenId, token, shareUrl }`. CLI: `slideless share <path> --title "..."`.
-- [POST /updateSharedPresentation](https://docs.slideless.ai/api-reference/update-presentation): Re-publish to an existing `shareId`. Body `{ shareId, html, title? }`, response `{ shareId, version, shareUrl }`. URL preserved, view count preserved, version auto-bumped. CLI: `slideless update <shareId> <path>`.
-- [GET /listMyPresentations](https://docs.slideless.ai/api-reference/list-presentations): List user's presentations (cap 100, `createdAt desc`). CLI: `slideless list`.
-- [GET /getSharedPresentationInfo/{shareId}](https://docs.slideless.ai/api-reference/get-presentation): Full metadata for one presentation including all tokens with per-token `accessCount` and `lastAccessedAt`. CLI: `slideless get <shareId>`.
-- [GET /getSharedPresentation/{shareId}?token=…](https://docs.slideless.ai/api-reference/get-shared-presentation): Public, returns raw HTML, gated by token. Used by the Slideless viewer iframe internally. No CLI equivalent (in normal use you give recipients the share URL on `app.slideless.ai`).
-- [POST /verifyApiKey](https://docs.slideless.ai/api-reference/verify-api-key): Validate a key without making destructive calls. CLI: `slideless verify` or `slideless whoami`.
+- [API overview](https://docs.slideless.ai/api-reference/overview): Base URL, auth, error format, status codes, endpoint index, CORS, idempotency.
+- [Authentication](https://docs.slideless.ai/api-reference/authentication): The `Authorization: Bearer` header, `cko_` / `cka_` prefixes, scopes.
+- [CLI auth endpoints](https://docs.slideless.ai/api-reference/cli-auth): OTP signup/login.
+- [POST /precheckAssets](https://docs.slideless.ai/api-reference/precheck-assets): Step 1 — which SHA-256 hashes are missing? Mints upload session on new-presentation flow.
+- [POST /uploadPresentationAsset](https://docs.slideless.ai/api-reference/upload-asset): Step 2 — multipart upload of one blob. Hash-verified server-side.
+- [POST /commitPresentationVersion](https://docs.slideless.ai/api-reference/commit-presentation-version): Step 3 — commit the manifest, bump `currentVersion`. Creates new presentation on sessionId, updates on presentationId.
+- [POST /sharePresentationViaEmail](https://docs.slideless.ai/api-reference/share-via-email): Email to 1–20 recipients with per-recipient tracked tokens via Resend.
+- [GET /listMyPresentations](https://docs.slideless.ai/api-reference/list-presentations): List user's presentations (cap 100).
+- [GET /getSharedPresentationInfo/{presentationId}](https://docs.slideless.ai/api-reference/get-presentation): Metadata + all tokens.
+- [POST /addPresentationToken](https://docs.slideless.ai/api-reference/add-presentation-token): Mint new named token. Optional `versionMode`.
+- [POST /setTokenVersionMode](https://docs.slideless.ai/api-reference/set-token-version-mode): Pin a token to a version or follow latest.
+- [GET /listPresentationVersions/{presentationId}](https://docs.slideless.ai/api-reference/list-presentation-versions): Owner-only. Every version's summary.
+- [GET /getPresentationVersion/{presentationId}/{version}](https://docs.slideless.ai/api-reference/get-presentation-version): Owner-only. Full manifest for one version.
+- [GET /downloadPresentationAsset](https://docs.slideless.ai/api-reference/download-presentation-asset): Authenticated streaming download — the CLI-side counterpart to the public viewer.
+- [POST /unsharePresentation](https://docs.slideless.ai/api-reference/unshare-presentation): Revoke one token or every token on the deck.
+- [POST /deletePresentation](https://docs.slideless.ai/api-reference/delete-presentation): Hard delete. Irreversible.
+- [POST /inviteCollaborator](https://docs.slideless.ai/api-reference/invite-collaborator): Grant dev (edit) access by email.
+- [POST /uninviteCollaborator](https://docs.slideless.ai/api-reference/uninvite-collaborator): Revoke a dev collaborator.
+- [POST /listCollaborators](https://docs.slideless.ai/api-reference/list-collaborators): Every collaborator row (pending/active/revoked).
+- [GET /getSharedPresentation/{presentationId}/_t/{token}/...](https://docs.slideless.ai/api-reference/get-shared-presentation): Public viewer. Path-token form for native relative-path resolution. Serves entry HTML + assets with ETag + Range support.
+- [POST /verifyApiKey](https://docs.slideless.ai/api-reference/verify-api-key): Validate a key.

@@ -29,15 +29,16 @@ slideless auth signup-request --email you@example.com --json
 
 ### `slideless auth signup-complete`
 
-Verify the code; create user, organization, and a `cko_` key; save it as the active profile.
+Verify the code; create user, organization, and a `cko_` key; save it as the active profile. `--first-name` is required (stored as display name + used in onboarding emails); `--last-name` is optional. Without `--company`, the org defaults to `"<first-name>'s workspace"`.
 
 ```bash
 # Minimal
-slideless auth signup-complete --email you@example.com --code 123456
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
 
-# Populate the organization at the same time
+# Populate user + organization at the same time
 slideless auth signup-complete \
   --email you@example.com --code 123456 \
+  --first-name "Alex" --last-name "Morgan" \
   --company "Acme" --description "We make widgets" \
   --brand-primary "#0a0a0a" --logo ./logo.png
 ```
@@ -112,63 +113,263 @@ slideless logout personal
 
 ## Presentations
 
-### `slideless share <path>`
+Slideless v0.5 collapsed the CLI to eight verbs. Each does one thing:
 
-Upload an HTML file as a public presentation, or update an existing one in place with `--update <shareId>`.
+| Verb | Job |
+|---|---|
+| `push` | Upload content (create new, or update existing) |
+| `pull` | Download content to a local folder |
+| `share` | Mint a public viewer URL |
+| `unshare` | Revoke viewer URLs |
+| `invite` | Add a dev collaborator |
+| `uninvite` | Revoke a dev collaborator |
+| `delete` | Hard-delete a presentation |
+| `list` | Show every deck you can access |
+
+The old `share <path>`, `update`, `revoke`, and `token add` commands are gone.
+
+### `slideless push [path]`
+
+Upload content — creates a new deck or updates an existing one based on whether `slideless.json` exists in the target folder.
 
 ```bash
-slideless share ./deck.html --title "Q4 Pitch"
-slideless share ./deck.html --title "Q4 Pitch" --update 01a3b...
-cat deck.html | slideless share - --title "Piped demo"
+# New presentation (first push in a folder)
+slideless push ./my-deck --title "Q4 Pitch"
+
+# Update (subsequent pushes in the same folder)
+slideless push                           # from inside the deck directory
+slideless push ./my-deck                 # with explicit path
+slideless push ./my-deck --force         # bypass version-conflict check
 ```
 
-**JSON output (create):**
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--title <title>` | Required on first push. Display title shown in the dashboard. |
+| `--entry <filename>` | Folder mode only. Entry HTML file name. Default: `index.html`. |
+| `--force` | Skip optimistic-concurrency check on updates (bypass conflicts) |
+| `--strict` | Escalate static-scan warnings to hard errors. |
+| `--message <text>` | Short commit-style note, logged server-side. |
+
+The first successful push writes a **`slideless.json`** at the deck root. That's how the CLI knows the folder is a Slideless deck — don't delete or edit this file. It's added to the built-in ignore list so it never uploads.
+
+**JSON output (new):**
 ```json
 {
   "success": true,
   "data": {
-    "shareId": "01a3b...",
-    "tokenId": "01a3c...",
-    "token": "...",
-    "shareUrl": "https://..."
+    "presentationId": "01HXYZ...",
+    "version": 1,
+    "role": "owner",
+    "isNew": true,
+    "slidelessJson": "slideless.json",
+    "assetsUploaded": 5,
+    "assetsDeduped": 0,
+    "totalBytes": 42000
   }
 }
 ```
 
-**JSON output (update):**
+**JSON output (conflict on update):**
 ```json
 {
-  "success": true,
-  "data": { "shareId": "01a3b...", "version": 2, "shareUrl": "https://..." }
+  "success": false,
+  "status": 409,
+  "error": {
+    "code": "conflict",
+    "message": "Server is at version 5, client expected 3.",
+    "nextAction": "Remote has a newer version. Run `slideless pull <id>` to sync, or pass --force."
+  }
 }
 ```
 
-### `slideless update <shareId> <path>`
+A push does **not** mint a viewer URL anymore. Use `slideless share <id>` when you're ready to publish.
 
-Replace the HTML at an existing share. Same URL, new content, version bumps, view count preserved.
+### `slideless pull <presentationId> [path]`
+
+Download a presentation to a local folder. Writes `slideless.json` at the root so subsequent `push` commands update this presentation.
 
 ```bash
-slideless update 01a3b... ./deck-v2.html
-slideless update 01a3b... ./deck-v2.html --title "Q4 Pitch — v2"
+slideless pull 01HXYZ...                 # → ./<title-slug>/
+slideless pull 01HXYZ... ./my-deck       # explicit destination
+slideless pull 01HXYZ... --at 3          # pin to a specific version
+slideless pull 01HXYZ... --force         # wipe and overwrite a non-empty folder
 ```
+
+Owners and active dev collaborators can pull. Every byte is re-hashed on the client and the download aborts if any SHA-256 mismatches the manifest.
+
+**JSON output:**
+```json
+{
+  "success": true,
+  "data": {
+    "presentationId": "01HXYZ...",
+    "version": 4,
+    "role": "dev",
+    "path": "/abs/path/to/deck",
+    "filesWritten": 12,
+    "bytes": 5420998
+  }
+}
+```
+
+### `slideless share <presentationId>`
+
+Mint a public viewer URL. Owner-only. Replaces the old `token add` command.
+
+```bash
+slideless share 01HXYZ...
+slideless share 01HXYZ... --name "Acme Corp"
+slideless share 01HXYZ... --pin 3                # freeze viewers on v3
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--name <text>` | Human-readable label for the token. Default: `default`. |
+| `--pin <version>` | Pin the token to a specific version. Default: follows latest. |
+
+### `slideless unshare <presentationId>`
+
+Revoke viewer URLs. The deck itself stays — you can mint new URLs later.
+
+```bash
+slideless unshare 01HXYZ...                      # revoke every token
+slideless unshare 01HXYZ... --token 01H...       # revoke just one
+```
+
+### `slideless invite <presentationId>`
+
+Invite a dev collaborator by email. Owner-only.
+
+```bash
+slideless invite 01HXYZ... --email alice@example.com
+slideless invite 01HXYZ... --email alice@example.com --message "Happy to have your help!"
+```
+
+If Alice already has a Slideless account, she's linked immediately (`status=active`). Otherwise the row is `status=pending` and auto-claims when she signs up. The invite email includes a CLI snippet and a dashboard link.
+
+### `slideless uninvite <presentationId> <collaboratorId>`
+
+Revoke a dev collaborator. Symmetric with `invite`. Revocation is immediate.
+
+```bash
+slideless uninvite 01HXYZ... 01H...
+```
+
+### `slideless delete <presentationId>`
+
+Hard-delete a presentation. Removes the Firestore doc, every version, every asset, every collaborator row. **Irreversible.**
+
+```bash
+slideless delete 01HXYZ...          # interactive — type the title to confirm
+slideless delete 01HXYZ... --yes    # skip prompt (scripts, CI)
+```
+
+### `slideless share-email <presentationId>`
+
+Email an existing shared presentation to one or more recipients. Each recipient gets a unique named share link by default — the sender can then see per-recipient opens in the dashboard (or via `slideless get`).
+
+```bash
+# Single recipient
+slideless share-email 01a3b... --to alice@x.com
+
+# Multiple recipients with an optional personal note
+slideless share-email 01a3b... \
+  --to alice@x.com --to bob@y.com \
+  --message "Here's the Q2 deck we discussed." \
+  --json
+
+# Reuse an existing token for every recipient (loses per-recipient tracking)
+slideless share-email 01a3b... --to alice@x.com --token-id 01a3c... --json
+```
+
+Flags:
+
+| Flag | Notes |
+|---|---|
+| `--to <email>` | Recipient. Repeat for multiple (max 20). **Required.** |
+| `--message <text>` | Optional personal note shown in the email body (≤2000 chars). |
+| `--subject <text>` | Optional custom subject line (≤200 chars). |
+| `--token-id <id>` | Reuse a single existing token for every recipient instead of minting one per recipient. |
+
+**JSON output (success):**
+```json
+{
+  "success": true,
+  "data": {
+    "presentationId": "01a3b...",
+    "sent": [
+      {
+        "email": "alice@x.com",
+        "tokenId": "01a3c...",
+        "resendMessageId": "re_...",
+        "shareUrl": "https://app.slideless.ai/share/01a3b...?token=..."
+      }
+    ],
+    "failed": [
+      { "email": "bob@bad", "code": "invalid-email", "message": "Not a valid email address." }
+    ],
+    "summary": { "total": 2, "sent": 1, "failed": 1 }
+  }
+}
+```
+
+`failed[]` contains **per-recipient** failures inside an otherwise-successful call — `success: false` only fires when zero emails could be attempted (auth, not-found, too-many-recipients, etc.).
+
+Error codes specific to `share-email`:
+
+| Code | Meaning | `nextAction` |
+|---|---|---|
+| `missing-recipients` | No `--to` flags | Add at least one recipient and retry |
+| `too-many-recipients` | >20 recipients | Split into batches of ≤20 |
+| `message-too-long` | `--message` >2000 chars | Shorten or omit |
+| `invalid-email` | Bad email syntax | Returned in `failed[]`, not top-level. Show the user which addresses were rejected. |
+| `email-send-failed` | Resend API failure | Returned in `failed[]`. Retry once; if persistent, Resend is having issues. |
+
+See the [share-via-email guide](/guides/sharing-via-email) for worked examples.
 
 ### `slideless list`
 
-List your presentations (most recent first, capped at 100).
+List every presentation you can access — decks you own and decks shared with you. Each row carries a `role` column (`owner` or `dev`).
 
 ```bash
 slideless list
 slideless list --json
 ```
 
-### `slideless get <shareId>`
+### `slideless get <presentationId>`
 
-Show full metadata for a single presentation, including per-token view counts.
+Show full metadata for a single presentation.
+
+- For owners: versions, tokens, collaborators, view counts.
+- For dev collaborators: a read-only view with a `role: 'dev'` marker.
 
 ```bash
-slideless get 01a3b...
-slideless get 01a3b... --json
+slideless get 01HXYZ...
+slideless get 01HXYZ... --json
 ```
+
+### `slideless pin <presentationId> <tokenId>`
+
+Change a share token's version mode — pin it to a specific version or put it back on auto-follow-latest. Only the presentation owner can pin.
+
+```bash
+slideless pin 01a3b... 01a3c... --to-version 3    # freeze this recipient on v3
+slideless pin 01a3b... 01a3c... --latest          # auto-follow future updates
+slideless pin 01a3b... 01a3c... --to-version 3 --json
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--to-version <N>` | Pin to version N. Mutually exclusive with `--latest`. |
+| `--latest` | Follow the current version. Mutually exclusive with `--to-version`. |
+
+Recipients cannot change their own version — there is no query-param override. Use `slideless get <presentationId>` to inspect every token's current `versionMode`. See [Versioning](/concepts/versioning).
 
 ## Config
 
@@ -211,10 +412,16 @@ Common `code` values (share / presentations):
 | Code | Meaning |
 |---|---|
 | `unauthenticated` | Missing or invalid API key |
-| `permission-denied` | Key valid but lacks the required scope, or not the resource owner |
-| `not-found` | The `shareId` doesn't exist |
-| `archived` | Tried to update a presentation that's been archived |
-| `payload-too-large` | HTML exceeds the 10 MB limit |
+| `permission-denied` | Key valid but lacks the required scope, or caller is not owner/dev |
+| `not-found` | The `presentationId` or `collaboratorId` doesn't exist |
+| `conflict` | Push lagging behind server (409). Pull and retry, or pass `--force`. |
+| `collaborator-limit-reached` | Hit the 10-per-deck cap on concurrent invites |
+| `invalid-email` | Email in `--email` is not a valid address |
+| `payload-too-large` | File or total deck size exceeds the plan cap |
+| `hash-mismatch` | Upload bytes don't match declared sha256 (or pull blob doesn't match manifest) |
+| `blobs-missing` | `commit` was called with a manifest referencing an unuploaded hash |
+| `too-many-files` | Manifest exceeds the plan's max file count |
+| `invalid-argument` | Request body is malformed |
 | `network-error` | Couldn't reach the backend |
 | `internal` | Backend 5xx |
 

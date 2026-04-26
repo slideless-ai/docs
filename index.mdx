@@ -1,13 +1,22 @@
 ---
 title: "What is Slideless?"
-description: "Host and share self-contained HTML presentations with public links, view tracking, and update-in-place"
+description: "Host and share HTML presentations — a single file or a folder with assets — with public links, view tracking, versioning, and update-in-place."
 ---
+
+import { BrutalButton } from "/snippets/brutal-button.jsx";
+import { OffsetCard } from "/snippets/offset-card.jsx";
+import { AccentChip } from "/snippets/accent-chip.jsx";
+
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", margin: "8px 0 28px" }}>
+  <BrutalButton href="/quickstart" label="Quickstart" variant="primary" />
+  <BrutalButton href="/cli/overview" label="CLI overview" variant="secondary" />
+</div>
 
 ## Overview
 
-Slideless turns a self-contained HTML file into a public, trackable, updatable presentation URL. You upload the HTML with one CLI command, get back a link, and share it. Anyone with the link opens the presentation in any browser. No install, no login, no app account.
+Slideless turns an HTML deck — either a single self-contained HTML file or a folder with images, video, 3D assets, CSS, JS — into a public, trackable, updatable presentation URL. You upload the deck with one CLI command, get back a link, and share it. Anyone with the link opens the presentation in any browser. No install, no login, no app account.
 
-The product solves a specific problem: presentation files are heavy, locked to specific apps, and lose information the moment you send them. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless turns the deck into a hosted page, a URL you can drop into Slack, paste into an email, or post on a website.
+The product solves a specific problem: presentation files are heavy, locked to specific apps, and lose information the moment you send them. A `.pptx` requires PowerPoint or Keynote, depends on installed fonts, breaks animations across versions, and the moment you email it you lose all visibility into who saw it. Slideless turns the deck into a hosted page — a URL you can drop into Slack, paste into an email, or post on a website.
 
 ## How you use it
 
@@ -16,60 +25,91 @@ The primary way to interact with Slideless is the [`slideless` CLI](/cli/overvie
 ```bash
 npm install -g slideless
 slideless auth signup-request --email you@example.com
-slideless auth signup-complete --email you@example.com --code 123456
-slideless share ./deck.html --title "Q4 Pitch"
+slideless auth signup-complete --email you@example.com --code 123456 --first-name "Alex"
+
+# A folder with assets…
+slideless push ./my-deck --title "Q4 Pitch"
+
+# …or a single HTML file
+slideless push ./deck.html --title "Q4 Pitch"
+
+# Then mint a public viewer URL for anyone.
+slideless share <presentationId>
 ```
 
-You get back a `shareUrl`. Send it to anyone. They open it in any browser.
+You get back a `shareUrl`. Send it to anyone. They open it in any browser, relative asset paths in your HTML (`./hero.jpg`, `./video/demo.mp4`, `./three/scene.js`) resolve natively — exactly like serving your folder from a static webserver.
 
 Signup happens from the terminal via a one-time code emailed to you. No dashboard round-trip required. If you already have a key, `slideless login` accepts it directly; see the [quickstart](/quickstart) for both paths.
 
-To update the deck without changing the URL:
+To update the deck without changing the URL, run `slideless push` again from the same folder:
 
 ```bash
-slideless update <shareId> ./deck.html
+slideless push ./my-deck
 ```
 
-Same URL, new content, view counts preserved.
+The CLI reads the `slideless.json` file written on the first push to know which presentation to update. Same URL, new content, view counts preserved. Unchanged files (images, video, bundles) are deduplicated by content hash — only modified files re-upload.
 
 ## What happens behind the scenes
 
-1. The HTML is stored in private cloud storage (Google Cloud Storage, region `europe-west1`).
-2. A Firestore record is created with metadata, the owner, and an unguessable 384-bit share token.
-3. You get back a `shareUrl` you can share anywhere.
-4. Recipients open the URL. Slideless serves your HTML inside a thin viewer chrome (card border, fullscreen toggle, download menu, footer).
-5. Each view increments a per-token counter so you can see who's looking.
+1. The CLI hashes every file in your deck (SHA-256) and asks the backend which hashes it already has.
+2. Only the missing blobs upload (multipart, hash-verified server-side).
+3. A manifest listing every file's path + hash + size + content-type is committed to Cloud Storage as an immutable version. `currentVersion` bumps by 1.
+4. A Firestore record tracks the owner, title, share tokens, and view counters.
+5. Recipients open the share URL. Slideless serves the entry HTML + assets from private Cloud Storage, inside a sandboxed iframe with ETag caching and Range support (for video seeking).
+6. Each view increments a per-token counter so you can see who's looking. Every token resolves to either `latest` (auto-follows updates) or a `pinned` version you set explicitly.
 
 ## What you can do
 
 | Capability | How |
 |---|---|
-| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation`, `share-presentation`) call the CLI under the hood |
-| Upload from a script or CI pipeline | `slideless share ./deck.html --title "..."` (one command, JSON output via `--json`) |
-| Update a published deck without breaking the link | `slideless update <shareId> ./deck.html`. Same URL, view count preserved, version auto-bumped |
-| Track who's viewing | `slideless list` for totals, `slideless get <shareId>` for per-token counts |
-| Send different links to different recipients | Multiple named tokens per presentation, manage from the dashboard |
-| Manage everything from a UI | Dashboard at https://app.slideless.ai |
+| Generate decks with AI and publish them | Claude marketplace skills (`generate-presentation`, `push-presentation`, `share-presentation`) call the CLI under the hood |
+| Include images, video, 3D models, shaders | Put them in the deck folder, reference relatively (`./hero.jpg`, `./three/scene.js`) |
+| Upload from a script or CI pipeline | `slideless push ./my-deck --title "..." --strict --json` |
+| Update a published deck without breaking the link | `slideless push` from the same folder. Same URL, view count preserved, unchanged files deduplicated |
+| Freeze a recipient on a specific version | `slideless pin <presentationId> <tokenId> --to-version N` |
+| Track who's viewing | `slideless list` for totals, `slideless get <presentationId>` for per-token counts |
+| Send different links to different recipients | `slideless share <id> --name "<label>"` mints per-recipient tokens, each with its own `versionMode` |
+| Collaborate with a teammate | `slideless invite <id> --email <addr>` grants push + pull access |
+| Manage everything from a UI | Dashboard at https://app.slideless.ai (browsing, preview, token management, collaborators, delete) |
 
 ## What Slideless is not
 
 - **Not a slide editor.** You bring the HTML. Slideless hosts and shares it. Use Claude (or Reveal.js, or hand-written HTML, or any AI generator) to author.
-- **Not a PowerPoint converter.** Upload `.html`, not `.pptx`.
+- **Not a PowerPoint converter.** Upload `.html` or a folder, not `.pptx`.
 - **Not a CMS.** It's purpose-built for one thing: making a deck shareable as a URL.
+- **Not a dashboard editor.** v3 uploads are CLI-driven. The dashboard handles browsing, previewing, token management, collaborators, and deletion — not content editing.
 
 ## Architecture
 
 | Layer | What it does |
 |---|---|
 | **CLI** | `slideless` npm package, the primary interface to every operation |
-| **Public viewer** | https://app.slideless.ai/share/[shareId] renders any HTML inside a sandboxed iframe with viewer chrome |
+| **Public viewer** | https://app.slideless.ai/share/[presentationId] renders any HTML inside a sandboxed iframe with viewer chrome |
 | **Dashboard** | https://app.slideless.ai for sign in, browse presentations, create API keys, manage share tokens |
 | **HTTP API** | Cloud Functions in `europe-west1` (the CLI wraps these; see [Advanced: HTTP API](/api-reference/overview) if you need to call them directly) |
 | **Plugin skills** | Open Plugin v1 repo at https://github.com/slideless-ai/plugin, installable via `npx plugins add slideless-ai/plugin`. Skills delegate to the CLI |
 
-## Next steps
+## <AccentChip label="Next steps" />
 
-- **[Quickstart](/quickstart)** — Upload your first presentation in five minutes.
-- **[CLI overview](/cli/overview)** — Why the CLI is the recommended way in.
-- **[Why Slideless](/why-slideless/portable)** — The case for HTML over PowerPoint.
-- **[Advanced: HTTP API](/api-reference/overview)** — Raw endpoint reference for when you can't use the CLI.
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px", margin: "20px 0" }}>
+  <OffsetCard
+    href="/quickstart"
+    title="Quickstart"
+    body="Upload your first presentation in five minutes."
+  />
+  <OffsetCard
+    href="/cli/overview"
+    title="CLI overview"
+    body="Why the CLI is the recommended way in."
+  />
+  <OffsetCard
+    href="/why-slideless/portable"
+    title="Why Slideless"
+    body="The case for HTML over PowerPoint."
+  />
+  <OffsetCard
+    href="/api-reference/overview"
+    title="HTTP API"
+    body="Raw endpoint reference for when you can't use the CLI."
+  />
+</div>

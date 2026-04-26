@@ -1,0 +1,146 @@
+---
+title: "Custom fonts"
+description: "Two ways to get the typography you want into a Slideless deck — CDN fonts and bundled @font-face — when to pick each, and the exact snippets."
+---
+
+## The two paths
+
+| Option | Best for | Quota cost | Offline | Setup |
+|---|---|---|---|---|
+| **CDN fonts** (Google Fonts, Fontshare, Adobe Fonts) | Most decks — especially agent-generated ones | None | Breaks without internet | One `<link>` tag |
+| **Bundled `@font-face`** | Brand fonts, licensed faces, air-gapped audiences | Counts against deck quota (~50–200 KB per weight) | Works | Drop files in the folder, reference them |
+
+Both work. Pick bundled when the font isn't on a public CDN, when licensing forbids a third-party host, or when the deck is for an offline screening. Pick CDN for everything else.
+
+## CDN fonts
+
+The simplest path — one `<link>` tag, no file management, zero quota cost. The viewer's CSP already whitelists `https:` for both stylesheets and font files, so any standard CDN works.
+
+```html
+<head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    h1, h2, h3 { font-weight: 700; }
+  </style>
+</head>
+```
+
+Works identically in single-file decks and folder decks. No CLI changes, no special configuration.
+
+## Bundled fonts (`@font-face`)
+
+Folder mode only. Drop the font files into the deck (anywhere — no forced `/fonts/` convention) and reference them with relative paths inside `@font-face`.
+
+### Folder layout
+
+```
+deck/
+├── index.html
+├── styles.css
+└── fonts/
+    ├── Inter-Regular.woff2
+    └── Inter-Bold.woff2
+```
+
+### The CSS
+
+```css
+/* styles.css */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/Inter-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/Inter-Bold.woff2') format('woff2');
+}
+
+body { font-family: 'Inter', system-ui, sans-serif; }
+h1, h2, h3 { font-weight: 700; }
+```
+
+### The HTML
+
+```html
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <h1>Hello, Inter.</h1>
+</body>
+</html>
+```
+
+### Upload
+
+```bash
+slideless push ./deck --title "Brand deck"
+```
+
+The CLI detects `.woff2` as `font/woff2` automatically. The static scan walks every `url(...)` in your CSS — including the ones inside `@font-face` — so a typo in the path surfaces as a pre-upload warning before the deck goes live.
+
+## Supported font formats
+
+Slideless doesn't maintain a font allowlist. The CLI assigns the correct `Content-Type` from the file extension; the viewer streams the bytes untouched.
+
+| Extension | Content-Type | Use when |
+|---|---|---|
+| `.woff2` | `font/woff2` | **Default choice.** Widely supported (96%+ of browsers), ~60% smaller than TTF. |
+| `.woff` | `font/woff` | Older-browser fallback for `.woff2`. Rarely needed today. |
+| `.ttf` | `font/ttf` | Source format; only upload if you can't convert to `.woff2`. |
+| `.otf` | `font/otf` | Same — convert to `.woff2` if you can. |
+| `.eot` | `application/vnd.ms-fontobject` | Legacy IE only. Skip unless you specifically need it. |
+
+Ship `.woff2` and stop. The other formats bloat the deck for no modern gain.
+
+### Multiple format fallback
+
+If you genuinely need older-browser coverage:
+
+```css
+@font-face {
+  font-family: 'Inter';
+  src: url('./fonts/Inter-Regular.woff2') format('woff2'),
+       url('./fonts/Inter-Regular.woff')  format('woff');
+}
+```
+
+The static scanner ignores the `format()` hints correctly — only the URLs count as references.
+
+## Pitfalls
+
+- **Only ship `.woff2` unless you need fallbacks.** Every extra format doubles your font weight in the deck.
+- **Set `font-display: swap`.** Without it the browser shows invisible text until the font loads — looks broken on slow connections.
+- **Parent-directory references are a hard error.** `src: url('../shared/fonts/MyFont.woff2')` fails the pre-upload scan. Keep fonts inside the deck folder; decks must be self-contained.
+- **Don't mix CDN and bundled for the same family** unless you're deliberately handling licensing or fallbacks. The browser picks one source and ignores the rest; the quota cost of the bundled files is wasted.
+- **CORS isn't a concern.** Slideless serves your bundled fonts from the same origin as the deck HTML inside the viewer's iframe, so `<link>` and `@font-face` both work without any cross-origin headers. This is the whole point of the path-token URL model.
+- **Licensing is on you.** Slideless hosts what you upload — it doesn't verify font licenses. Check the license before bundling a font; many commercial faces don't permit self-hosting.
+
+## Fixing a broken font load
+
+If a font doesn't render after upload:
+
+1. **Open DevTools → Network → Fonts.** Check the file loaded with HTTP 200 and the right `Content-Type`.
+2. **Check the path.** Your CSS `url('./fonts/X.woff2')` must resolve to an actual file in the manifest. Run `slideless share --strict` to escalate missing-file warnings into a blocking error.
+3. **Check `font-family` names match.** The name in `@font-face { font-family: 'Inter' }` must match the name used in `body { font-family: 'Inter' }` — browsers silently fall back on a typo.
+4. **Check the weight.** If your CSS sets `font-weight: 500` but you only bundled 400 and 700, the browser synthesizes a fake bold. Bundle the weights you actually use.
+
+## See also
+
+- [Assets concept](/concepts/assets) — how Content-Type detection, content-addressed storage, and manifests work.
+- [Working with assets](/guides/working-with-assets) — the general folder model, `.slidelessignore`, static scan, Range requests.
+- [Presentations](/concepts/presentations#size-and-file-count-caps) — per-plan size caps.
