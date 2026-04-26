@@ -1,0 +1,77 @@
+---
+title: "Use Slideless in Claude Desktop"
+description: "Add the Slideless MCP connector to Claude Desktop or claude.ai. Sign in with your Slideless account to create, upload, share, and manage presentations directly from your chats — no CLI required."
+---
+
+Talk to Slideless from inside any chat in Claude Desktop, claude.ai, ChatGPT desktop, or any other host that supports MCP custom connectors. No CLI install, no API key to copy. You add the connector once, sign in to Slideless when prompted, and ask Claude to do things like *"upload this HTML as a deck"* or *"share my latest presentation with bob@acme.com"*.
+
+<Note>
+Using Slideless from the **terminal**? See the [`slideless` CLI](/cli/overview).
+Using it from **Claude Code or Cursor**? See the [plugin skills](/skills/overview).
+The MCP connector below is for the **Claude desktop app** and the **claude.ai web app** — anywhere that has a built-in "Custom Connectors" panel.
+</Note>
+
+## Add the connector
+
+In Claude Desktop:
+
+1. Open **Settings → Connectors → Add custom connector**
+2. Fill in two fields and leave the rest blank:
+
+| Field | Value |
+|---|---|
+| **Name** | `Slideless` |
+| **URL** | `https://slideless-mcp.codika.workers.dev/mcp` |
+
+3. Click **Connect**.
+
+Claude opens a browser tab to the Slideless consent screen. If you're not signed in, you'll be asked to sign in to your Slideless account first. Once signed in, click **Allow** to grant Claude access. The browser bounces back to Claude and the connector is ready.
+
+That's the whole setup. No API key to paste, no CLI to install.
+
+## What you can do
+
+Once connected, ask Claude things like:
+
+- *"List my Slideless presentations."*
+- *"Generate a 5-slide deck about Q4 results and upload it to Slideless."*
+- *"Share my latest presentation with bob@acme.com via email."*
+- *"Pin the share link for my pitch deck to version 3."*
+- *"Revoke all share links on the demo deck."*
+- *"Invite alice@studio.com as a collaborator on my onboarding deck."*
+
+Claude picks the right tool — list, upload, share, invite, pin, revoke, delete, and a few more under the hood. Every action runs as your Slideless user, with the same permissions you have in the dashboard.
+
+## Manage your access
+
+You can review and revoke Claude's access at any time:
+
+1. Go to **[app.slideless.ai](https://app.slideless.ai)** → **Settings → Connected apps** *(coming soon)*
+2. Find the entry for your Claude Desktop install
+3. Click **Revoke** to invalidate Claude's access
+
+After revocation Claude loses access within roughly 30 minutes (the lifetime of an issued access token). To reconnect, remove the connector from Claude Desktop and add it again.
+
+## Troubleshooting
+
+<Note>
+If the connector setup fails with **"Couldn't reach the MCP server"**, double-check the URL is exactly `https://slideless-mcp.codika.workers.dev/mcp` (with `/mcp` at the end). Then retry. The OAuth handshake can briefly fail on first connect; remove the connector and re-add it once.
+</Note>
+
+| Symptom | Fix |
+|---|---|
+| **"Authorization failed"** after clicking Allow | Sign out of Slideless in your browser, sign back in, and retry. |
+| Tools listed but every call returns **"Invalid or missing API key"** | Remove the connector in Claude Desktop and re-add it. Your previous OAuth session may have expired. |
+| Tools never appear in Claude after connecting | Restart Claude Desktop. The MCP tool list refreshes on each new conversation. |
+
+If you're still stuck, contact support at [hello@slideless.ai](mailto:hello@slideless.ai).
+
+## Other MCP hosts
+
+The same connector URL works in any host that supports remote MCP custom connectors:
+
+- **claude.ai** (web) — Settings → Connectors → Add custom connector
+- **ChatGPT desktop** — Settings → Connectors → Add MCP server
+- **Cursor / Claude Code** — accept static API keys too; see the [CLI auth flow](/cli/auth) for how to get one
+
+For programmatic clients (CLI, scripts, agents), you can keep using your `cko_` API key — the MCP server accepts both auth methods on the same URL.

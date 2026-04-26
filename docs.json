@@ -97,6 +97,10 @@
         "pages": ["skills/overview"]
       },
       {
+        "group": "Claude Desktop (MCP)",
+        "pages": ["integrations/claude-desktop-mcp"]
+      },
+      {
         "group": "Advanced: HTTP API",
         "pages": [
           "api-reference/overview",
