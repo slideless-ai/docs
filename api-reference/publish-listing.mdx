@@ -38,6 +38,7 @@ The key must carry the **`marketplace:publish`** scope. See [API keys](/concepts
   "slug": "q4-pitch-template",
   "title": "Q4 Pitch Template",
   "tags": ["pitch", "startup", "investor"],
+  "techStack": ["html", "css"],
   "category": "business",
   "version": 3
 }
@@ -52,6 +53,7 @@ The key must carry the **`marketplace:publish`** scope. See [API keys](/concepts
 | `slug` | string | no | Permanent listing id. Lowercase, hyphenated, unique. Auto-derived from the title if omitted. |
 | `title` | string | no | Listing title. Defaults to the presentation's title. |
 | `tags` | string[] | no | Search tags. |
+| `techStack` | string[] | no | Technologies the listing is built with or built for, as free-form lowercase technology slugs (e.g. `["nextjs","firebase","n8n"]`). One canonical slug per technology; no display names or versions. Especially useful for `plan` listings. See [Tech stack](/concepts/marketplace#tech-stack). |
 | `category` | string | no | Category bucket. |
 | `version` | number | no | Version to pin. Defaults to the deck's current version. |
 

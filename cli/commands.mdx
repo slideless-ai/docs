@@ -394,6 +394,8 @@ Publish the presentation linked to the **current folder** as a marketplace listi
 slideless publish --kind presentation --description "A clean pitch-deck starting point."
 slideless publish --kind app --description "A standalone ROI calculator." \
   --slug roi-calculator --tags finance,calculator --category business
+slideless publish --kind plan --description "A Next.js + Firebase SaaS build plan." \
+  --stack nextjs,firebase,tailwind
 slideless publish --kind presentation --interactive --description "A parametric cost-quote deck."
 slideless publish --kind presentation --description "..." --version 3   # pin a specific version
 ```
@@ -408,6 +410,7 @@ Flags:
 | `--slug <slug>` | Override the auto-derived slug. Lowercase, hyphenated, unique. |
 | `--title <title>` | Listing title. Defaults to the presentation's title. |
 | `--tags a,b,c` | Comma-separated search tags. |
+| `--stack a,b,c` | Technologies the artifact is built with or built for, as comma-separated lowercase slugs (e.g. `nextjs,firebase,n8n`). One canonical slug per technology; no display names or versions. Especially useful for `plan` listings. |
 | `--category <name>` | Single category bucket. |
 | `--version <N>` | Pin to a specific version. Default: the deck's current version. |
 
@@ -446,6 +449,7 @@ Browse the public marketplace catalog. No API key required.
 ```bash
 slideless search "pitch deck"
 slideless search --kind app --tag finance --sort popular
+slideless search --kind plan --stack nextjs --sort popular
 slideless search "pricing" --kind presentation --interactive --category business --sort stars --json
 ```
 
@@ -456,6 +460,7 @@ Flags:
 | `--kind <presentation\|app\|plan>` | Filter to one kind — presentations, apps, or plans. |
 | `--interactive` | Filter to interactive listings only. |
 | `--tag <tag>` | Filter by a search tag. |
+| `--stack <tech>` | Filter by a single technology (e.g. `nextjs`). Matches listings whose tech stack includes it. |
 | `--category <name>` | Filter by category bucket. |
 | `--sort recent\|popular\|stars` | Order — newest, most-remixed, most-starred. Default `recent`. |
 | `--json` | Stable JSON output. |
@@ -489,6 +494,7 @@ Flags:
 | `--description <text>` | New catalog summary. |
 | `--readme <path>` | Path to a Markdown file used as the listing's long-form README. |
 | `--tags a,b,c` | Replace the search tags. |
+| `--stack a,b,c` | Replace the listing's tech stack — the technologies it's built with or built for. |
 | `--category <name>` | Change the category bucket. |
 | `--status <public\|unlisted>` | Switch discoverability. `public` shows in search; `unlisted` is reachable only by direct slug. |
 | `--republish-version` | Re-pin the listing to the deck's **current** version. |

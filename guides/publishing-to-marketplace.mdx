@@ -53,6 +53,7 @@ slideless publish \
   --kind presentation \
   --description "A clean pitch-deck starting point: title, problem, solution, ask." \
   --tags pitch,startup,minimal \
+  --stack html,css \
   --category business
 ```
 
@@ -64,6 +65,8 @@ Pick the [`kind`](/concepts/marketplace#the-three-kinds) deliberately — catego
 
 Then decide on **`--interactive`**. Interactivity is a *badge, not a category*: a `presentation` can be static or interactive — pass `--interactive` to flag it. An `app` is always interactive (the flag is forced on). An interactive parametric cost-quote is a `presentation --interactive`, not an `app`, because its value is your content.
 
+Optionally declare a **`--stack`** — the technologies the listing is built with or built for, as free-form slugs (`--stack nextjs,firebase,tailwind`). This is most valuable for `plan` listings: a remixer searching for a build plan can run `slideless search --kind plan --stack nextjs` to find one that targets their stack. You can also set or change it afterwards with `slideless listing update --stack`.
+
 Useful flags:
 
 | Flag | Purpose |
@@ -74,6 +77,7 @@ Useful flags:
 | `--slug <slug>` | Override the auto-derived slug. Must be unique; lowercase, hyphenated. |
 | `--title <title>` | Listing title. Defaults to the presentation's title. |
 | `--tags a,b,c` | Comma-separated search tags. |
+| `--stack a,b,c` | Technologies the listing is built with or built for, as comma-separated lowercase slugs (e.g. `nextjs,firebase,n8n`). One canonical slug per technology; no display names or versions. Especially worth setting for `plan` listings so remixers can find a plan for their stack. |
 | `--category <name>` | Single category bucket for catalog filtering. |
 | `--version <N>` | Pin to a specific version instead of the current one. |
 

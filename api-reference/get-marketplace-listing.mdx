@@ -43,6 +43,7 @@ None. Do not send an `Authorization` header.
     "interactive": false,
     "category": "business",
     "tags": ["pitch", "startup", "investor"],
+    "techStack": ["html", "css"],
     "status": "public",
     "version": 3,
     "stars": 128,
@@ -71,6 +72,7 @@ None. Do not send an `Authorization` header.
 | `interactive` | boolean | Whether the listing is interactive. A badge, not a category — always `true` for `app`. |
 | `category` | string \| null | Category bucket. |
 | `tags` | string[] | Search tags. |
+| `techStack` | string[] | Technologies the listing is built with or built for. Free-form lowercase technology slugs (e.g. `nextjs`, `firebase`). May be empty. See [Tech stack](/concepts/marketplace#tech-stack). |
 | `status` | `"public"` \| `"unlisted"` | Discoverability. See [Public vs unlisted](/concepts/marketplace#public-vs-unlisted). |
 | `version` | number | The pinned source version. |
 | `stars`, `remixCount`, `viewCount` | number | Public counters — stars, `slideless remix` runs, and listing-page opens. |

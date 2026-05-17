@@ -13,7 +13,7 @@ A listing wraps:
 
 - A **slug** — the stable, human-readable id (`acme/q4-template`, `pricing-calculator`). Used in URLs and every CLI command.
 - An **immutable version pin** — a listing always points at one frozen [version](/concepts/versioning) of the source presentation. Publishing never silently changes what people download.
-- Metadata: title, description, README, `kind`, `interactive`, `category`, tags, `status`, owner.
+- Metadata: title, description, README, `kind`, `interactive`, `category`, tags, **tech stack**, `status`, owner.
 - Three public counters: **stars**, **remix count**, and **view count**.
 - Optional **remix lineage** — if the source deck was itself remixed from another listing, the listing records where it came from.
 
@@ -40,6 +40,14 @@ Every listing also carries a boolean **`interactive`** flag. Interactivity is **
 The classic edge case: an **interactive parametric cost-quote** — a deck where the reader drags sliders to see prices update — is a **`presentation`** (with `interactive: true`), *not* an `app`. Its value is the author's content and framing; the interactivity just makes the message land harder. It only becomes an `app` if the value is the machine itself, usable for any input regardless of the author's content.
 
 `slideless search --kind` filters on `kind`; `--interactive` filters on the badge.
+
+### Tech stack
+
+A listing can also declare a **`techStack`**: the technologies it is built with, or built for. It is a free-form list of **lowercase technology slugs** such as `nextjs`, `firebase`, `tailwindcss`, or `n8n`. Pass one canonical short slug per technology, with no display names and no version numbers. The backend only lowercases and hyphenates what you send; it never substitutes one value for another. Set it at publish with `slideless publish --stack`, and change it later with `slideless listing update --stack`.
+
+Slideless keeps a curated catalog of common technologies — the recommended vocabulary, and what the website renders a logo for — but `techStack` is not restricted to it: any lowercase slug is accepted, so niche technologies are fine.
+
+The tech stack is most useful for **`plan`** listings: a build plan is only worth remixing if it targets a stack you actually want to build on, so a remixer can run `slideless search --kind plan --stack nextjs` to find a plan for their stack. It works for any `kind`, though — an `app` can declare what it's built with too.
 
 ## Browsing — no account needed
 

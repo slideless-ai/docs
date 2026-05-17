@@ -33,6 +33,7 @@ All optional.
 | `interactive` | boolean | Filter to interactive (`true`) or static (`false`) listings only. |
 | `category` | string | Filter by category bucket. |
 | `tag` | string | Filter by a single search tag. |
+| `stack` | string | Filter to listings whose tech stack includes this technology (e.g. `nextjs`). |
 | `sort` | `recent` \| `popular` \| `stars` | Order — newest, most-remixed, most-starred. Default `recent`. |
 | `limit` | number | Page size. Default 20, max 100. |
 | `cursor` | string | Opaque pagination cursor from a previous response's `nextCursor`. |
@@ -52,6 +53,7 @@ All optional.
         "interactive": false,
         "category": "business",
         "tags": ["pitch", "startup", "investor"],
+        "techStack": ["html", "css"],
         "status": "public",
         "version": 3,
         "stars": 128,
@@ -77,6 +79,7 @@ All optional.
 | `interactive` | boolean | Whether the listing is interactive. A badge, not a category — always `true` for `app`. |
 | `category` | string \| null | Category bucket. |
 | `tags` | string[] | Search tags. |
+| `techStack` | string[] | Technologies the listing is built with or built for. Free-form lowercase technology slugs (e.g. `nextjs`, `firebase`). May be empty. |
 | `status` | `"public"` | Always `public` in this endpoint's results. |
 | `version` | number | The pinned source version. |
 | `stars` | number | Public star count. |
@@ -94,6 +97,9 @@ All optional.
 
 ```bash
 curl -sS "https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceListings?kind=presentation&sort=popular&limit=20"
+
+# filter plan listings by tech stack
+curl -sS "https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceListings?kind=plan&stack=nextjs"
 ```
 
 ### Node.js
