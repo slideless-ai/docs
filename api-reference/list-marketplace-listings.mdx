@@ -1,0 +1,126 @@
+---
+title: "GET /listMarketplaceListings"
+description: "Browse the public marketplace catalog — filter by kind, category, and tag, sort by recent/popular/stars. No authentication required."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless search [query]` (or `slideless search --json`).
+</Note>
+
+## When to use
+
+Enumerate public [marketplace](/concepts/marketplace) listings — for a catalog page, a picker, or an agent browsing for a listing. Only `public` listings are returned; `unlisted` listings never appear here (fetch them by slug via [`GET /getMarketplaceListing`](/api-reference/get-marketplace-listing)).
+
+This endpoint is **public** — no API key — and its responses are **cached**.
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceListings
+```
+
+## Auth
+
+None. Do not send an `Authorization` header.
+
+## Query parameters
+
+All optional.
+
+| Param | Type | Description |
+|---|---|---|
+| `kind` | `presentation` \| `app` \| `plan` | Filter by listing kind. |
+| `interactive` | boolean | Filter to interactive (`true`) or static (`false`) listings only. |
+| `category` | string | Filter by category bucket. |
+| `tag` | string | Filter by a single search tag. |
+| `sort` | `recent` \| `popular` \| `stars` | Order — newest, most-remixed, most-starred. Default `recent`. |
+| `limit` | number | Page size. Default 20, max 100. |
+| `cursor` | string | Opaque pagination cursor from a previous response's `nextCursor`. |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "listings": [
+      {
+        "slug": "q4-pitch-template",
+        "title": "Q4 Pitch Template",
+        "description": "Investor-ready pitch skeleton — 8 slides, placeholder copy.",
+        "kind": "presentation",
+        "interactive": false,
+        "category": "business",
+        "tags": ["pitch", "startup", "investor"],
+        "status": "public",
+        "version": 3,
+        "stars": 128,
+        "remixCount": 540,
+        "viewCount": 3120,
+        "remixedFromSlug": null,
+        "remixedFromTitle": null,
+        "createdAt": "2026-04-15T10:00:00.000Z",
+        "updatedAt": "2026-04-18T15:30:00.000Z",
+        "marketplaceUrl": "https://slideless.ai/marketplace/q4-pitch-template"
+      }
+    ],
+    "nextCursor": "eyJvIjoyMH0"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `slug` | string | The listing's permanent id. |
+| `title`, `description` | string | Display metadata. |
+| `kind` | `"presentation"` \| `"app"` \| `"plan"` | The listing's purpose. See [The three kinds](/concepts/marketplace#the-three-kinds). |
+| `interactive` | boolean | Whether the listing is interactive. A badge, not a category — always `true` for `app`. |
+| `category` | string \| null | Category bucket. |
+| `tags` | string[] | Search tags. |
+| `status` | `"public"` | Always `public` in this endpoint's results. |
+| `version` | number | The pinned source version. |
+| `stars` | number | Public star count. |
+| `remixCount` | number | Number of times the listing has been remixed. |
+| `viewCount` | number | Number of times the listing's page has been opened on the marketplace site. |
+| `remixedFromSlug` | string \| null | Source listing's slug if this listing was published from a remixed deck; otherwise `null`. See [Remix lineage](/concepts/marketplace#remix-lineage). |
+| `remixedFromTitle` | string \| null | Source listing's title, or `null`. |
+| `createdAt`, `updatedAt` | ISO 8601 string | Timestamps. |
+| `marketplaceUrl` | string | The public website URL. |
+| `nextCursor` | string \| null | Pass as `cursor` for the next page, or `null` when exhausted. |
+
+## Examples
+
+### curl
+
+```bash
+curl -sS "https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceListings?kind=presentation&sort=popular&limit=20"
+```
+
+### Node.js
+
+```js
+const params = new URLSearchParams({ kind: 'presentation', sort: 'popular', limit: '20' });
+const res = await fetch(
+  `https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceListings?${params}`
+);
+
+const { data } = await res.json();
+for (const l of data.listings) {
+  console.log(`${l.slug} — ${l.title} — ★${l.stars} — ${l.remixCount} remixes`);
+}
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Bad `sort`/`kind` value or `limit` out of range | Use a documented enum value; `limit` ≤ 100 |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /getMarketplaceListing](/api-reference/get-marketplace-listing)** — full detail for one listing by slug.
+- **[GET /listMarketplaceRemixes](/api-reference/list-marketplace-remixes)** — listings remixed from a given listing.
+- **[POST /recordMarketplaceView](/api-reference/record-marketplace-view)** — bump a listing's view counter.
+- **[POST /recordMarketplaceRemix](/api-reference/record-remix)** — record a remix.

@@ -1,0 +1,129 @@
+---
+title: "Marketplace"
+description: "An npm-style public catalog of remixable presentations. Publish a deck as a listing, browse listings without an account, and remix any listing into a fresh local folder."
+---
+
+## What it is
+
+The **Slideless Marketplace** is a public, npm-style catalog of presentations that anyone can browse and remix. Any account can `slideless publish` a deck as a **listing**; anyone — account or not — can `slideless remix <slug>` it to start a new project from those exact files.
+
+It lives at **[slideless.ai/marketplace](https://slideless.ai/marketplace)** and is backed by a small set of [public Cloud Function endpoints](/api-reference/list-marketplace-listings).
+
+A listing wraps:
+
+- A **slug** — the stable, human-readable id (`acme/q4-template`, `pricing-calculator`). Used in URLs and every CLI command.
+- An **immutable version pin** — a listing always points at one frozen [version](/concepts/versioning) of the source presentation. Publishing never silently changes what people download.
+- Metadata: title, description, README, `kind`, `interactive`, `category`, tags, `status`, owner.
+- Three public counters: **stars**, **remix count**, and **view count**.
+- Optional **remix lineage** — if the source deck was itself remixed from another listing, the listing records where it came from.
+
+## The three kinds
+
+Every listing has a **`kind`**, set at publish time, that categorizes it by **purpose**. The boundary test is *message / machine / blueprint*:
+
+| `kind` | What it is | How you use it |
+|---|---|---|
+| **`presentation`** | The **message** — a deck you view. Its value is the author's content. Static or interactive. | View it, then `slideless remix <slug>` to get the files and make it yours. |
+| **`app`** | The **machine** — a self-contained HTML app you operate (e.g. a calculator, a converter, a visualizer). Always interactive. | Open and use it as-is. Optionally remix it to tweak the app itself. |
+| **`plan`** | The **blueprint** — an agent-executable build plan. Publishable now; its full agent-executable format is a later phase. | Remix it as the starting point for an agent-driven build. |
+
+The boundary is about purpose, not mechanics: all kinds are HTML decks, all can be remixed. Ask yourself *what is this for* — to convey a message, to operate a machine, or to drive a build.
+
+### Interactivity is a badge, not a category
+
+Every listing also carries a boolean **`interactive`** flag. Interactivity is **orthogonal to `kind`** — it is a badge, not a category:
+
+- A **`presentation`** can be static or interactive. Both are still presentations.
+- An **`app`** is always interactive (the backend forces `interactive: true` for `app`).
+- For a **`presentation`**, `interactive` defaults to `false`.
+
+The classic edge case: an **interactive parametric cost-quote** — a deck where the reader drags sliders to see prices update — is a **`presentation`** (with `interactive: true`), *not* an `app`. Its value is the author's content and framing; the interactivity just makes the message land harder. It only becomes an `app` if the value is the machine itself, usable for any input regardless of the author's content.
+
+`slideless search --kind` filters on `kind`; `--interactive` filters on the badge.
+
+## Browsing — no account needed
+
+Browsing is fully public. Listing the catalog, reading a single listing, and recording a remix require **no API key**:
+
+- The website at [slideless.ai/marketplace](https://slideless.ai/marketplace).
+- [`slideless search`](/cli/commands#slideless-search-query) and [`slideless listing get`](/cli/commands#slideless-listing-get-slug) from the terminal.
+- [`GET /listMarketplaceListings`](/api-reference/list-marketplace-listings) and [`GET /getMarketplaceListing`](/api-reference/get-marketplace-listing) over HTTP.
+
+Only **publishing**, **managing your own listings**, and **starring** need an authenticated key.
+
+## Public vs unlisted
+
+A listing's **`status`** controls discoverability:
+
+| `status` | Behavior |
+|---|---|
+| **`public`** | Appears in search, the catalog, and the website. The default. |
+| **`unlisted`** | Hidden from search and the catalog, but fully reachable by anyone who has the direct slug. |
+
+`unlisted` is the way to share a remixable deck with a specific audience without putting it in the public index — a client template, a work-in-progress, an internal tool. There is no access check on an unlisted listing: the slug *is* the secret. Switch between the two at any time with [`slideless listing update <slug> --status`](/cli/commands#slideless-listing-update-slug).
+
+## Stars, remixes, and views
+
+Each listing carries three public, GitHub-style signals:
+
+- **Stars** (`starCount`) — an explicit bookmark/upvote. Star a listing with [`slideless star <slug>`](/cli/commands#slideless-star-slug) (needs a key), remove it with `slideless unstar`, and list your own stars with `slideless stars`. Star count feeds `--sort stars`.
+- **Remix count** (`remixCount`) — incremented every time someone runs `slideless remix <slug>`. A usage signal, not a vote. Feeds `--sort popular`.
+- **View count** (`viewCount`) — incremented every time the listing's page opens on the marketplace website. The site fires [`POST /recordMarketplaceView`](/api-reference/record-marketplace-view) once per session per listing, so a refresh in the same session does not double-count.
+
+None of the three exposes *who* starred, remixed, or viewed — only the totals are public. [`slideless listing get`](/cli/commands#slideless-listing-get-slug) shows all three.
+
+## Remix lineage
+
+When a deck is created by remixing a listing, Slideless records that origin. `slideless remix <slug>` writes a small marker file — `.slideless-remix.json` — into the fresh folder, capturing the source slug, version, and title at the moment of the remix. The marker is **not** a `slideless.json`: the folder stays unlinked.
+
+On the **first** `slideless push` from that folder, push reads the marker and sends the lineage to the backend. The lineage is then stored on the new presentation **once, at creation, and is immutable** — later pushes never change it. When you `slideless publish` a listing from that presentation, the lineage is **copied onto the listing** too.
+
+A listing published from a remix exposes `remixedFromSlug` / `remixedFromTitle`, and its marketplace page shows a **"Remixed from &lt;original&gt;"** link back to the source listing.
+
+See [Remixing templates](/guides/remixing-templates) for how the marker behaves if you move or delete it.
+
+## Remixes of this — descendants
+
+The lineage is navigable in both directions. From any listing you can ask for the listings that were remixed *from* it: [`GET /listMarketplaceRemixes?slug=<slug>`](/api-reference/list-marketplace-remixes) returns every public descendant listing. When descendants exist, the marketplace website shows a **"Remixes of this"** section on the listing page, and [`slideless listing get <slug>`](/cli/commands#slideless-listing-get-slug) lists them too.
+
+Only descendants that have themselves been *published* appear here — remixing alone does not create a listing.
+
+## How it relates to the presentation lifecycle
+
+Publishing is a layer *on top of* a normal presentation. The [lifecycle](/concepts/lifecycle) is unchanged:
+
+1. `slideless push` a deck — you now have a presentation with a version history.
+2. `slideless publish --kind …` from inside that linked folder — Slideless creates a listing pinned to the **current** version.
+3. Keep pushing new versions as usual. The listing does **not** move on its own — it stays pinned to the version you published.
+4. To point the listing at a newer version, run [`slideless listing update <slug> --republish-version`](/cli/commands#slideless-listing-update-slug). To take it down, `slideless unpublish <slug>`.
+
+<Note>
+Publishing is **free and instant**. There is no review queue. You can publish as many listings as you have presentations.
+</Note>
+
+<Warning>
+You **cannot `slideless delete` a presentation that still has a marketplace listing.** Run `slideless unpublish <slug>` first, then delete the deck. This prevents a published slug from resolving to files that no longer exist.
+</Warning>
+
+## Remix is not collaboration
+
+Remixing and [collaboration](/concepts/collaboration) both move a deck between people, but they are fundamentally different:
+
+| | **Remix** | **Collaboration** (`invite`) |
+|---|---|---|
+| What you get | A brand-new presentation **you own** | Push/pull access to **someone else's** presentation |
+| Account needed | No (to remix) — yes to then `push` | Yes |
+| Relationship to source | None functional — a one-time copy. Lineage is recorded for attribution only. | Live — your pushes land on the shared deck |
+| Version history | Starts fresh at v1 | Shared, append-only |
+| Who can see your edits | Only you, until you publish or share | The owner and every collaborator |
+
+`slideless remix <slug>` writes the listing's files into a fresh local folder with **no `slideless.json`** — so the folder is *not* linked to any presentation, including the original. It is a clean starting point. When you `slideless push` from it, you create your **own** new presentation, in your **own** organization, with its **own** version history. The original listing's owner never sees your remix and is not affected by it (other than its remix count ticking up).
+
+The one thing carried across is **lineage** — a `.slideless-remix.json` marker the remix writes so that, if you later publish, your listing can credit the original (see [Remix lineage](#remix-lineage)). Lineage is attribution metadata; it grants no access and creates no live link in either direction.
+
+## Next
+
+- **[Publishing to the marketplace](/guides/publishing-to-marketplace)** — turn a deck into a listing, end to end.
+- **[Remixing templates](/guides/remixing-templates)** — search and remix a listing into a new project.
+- **[Command reference](/cli/commands#marketplace)** — every `publish` / `remix` / `search` / `listing` / `star` flag.
+- **[API keys](/concepts/api-keys)** — the `marketplace:publish` scope.

@@ -1,0 +1,108 @@
+---
+title: "GET /listMarketplaceRemixes"
+description: "List the public marketplace listings that were remixed from a given listing — its descendants. No authentication required."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. `slideless listing get <slug>` already shows a listing's descendants under "Remixes of this".
+</Note>
+
+## When to use
+
+Fetch every listing that descends from a given [marketplace](/concepts/marketplace) listing — the listings published from decks that were created by remixing it. This powers the **"Remixes of this"** section on a listing's marketplace page.
+
+Only descendants that have themselves been **published** appear here. Remixing a listing alone does not create one — the remixed deck must be pushed and then published before it shows up. See [Remix lineage](/concepts/marketplace#remix-lineage).
+
+This endpoint is **public** — no API key — and its responses are **cached**.
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceRemixes?slug={slug}
+```
+
+## Auth
+
+None. Do not send an `Authorization` header.
+
+## Query parameters
+
+| Param | Type | Description |
+|---|---|---|
+| `slug` | string | The source listing whose descendants to list. **Required.** |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "slug": "q4-pitch-template",
+    "remixes": [
+      {
+        "slug": "acme-series-a-pitch",
+        "title": "Acme Series A Pitch",
+        "description": "A Series A pitch built on the Q4 skeleton.",
+        "kind": "presentation",
+        "interactive": false,
+        "category": "business",
+        "tags": ["pitch", "series-a"],
+        "status": "public",
+        "version": 2,
+        "stars": 9,
+        "remixCount": 3,
+        "viewCount": 210,
+        "remixedFromSlug": "q4-pitch-template",
+        "remixedFromTitle": "Q4 Pitch Template",
+        "createdAt": "2026-05-02T11:00:00.000Z",
+        "updatedAt": "2026-05-09T08:30:00.000Z",
+        "marketplaceUrl": "https://slideless.ai/marketplace/acme-series-a-pitch"
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `slug` | string | The source listing the query was made for. |
+| `remixes` | array | Public descendant listings. Each entry is a `MarketplacePublicListing` — the same shape returned by [`GET /listMarketplaceListings`](/api-reference/list-marketplace-listings), including `remixedFromSlug` / `remixedFromTitle` pointing back at the source. |
+
+`remixes` is `[]` when nothing has been published from a remix of this listing.
+
+## Examples
+
+### curl
+
+```bash
+curl -sS "https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceRemixes?slug=q4-pitch-template"
+```
+
+### Node.js
+
+```js
+const slug = 'q4-pitch-template';
+const res = await fetch(
+  `https://europe-west1-slideless-ai.cloudfunctions.net/listMarketplaceRemixes?slug=${slug}`
+);
+
+const { data } = await res.json();
+console.log(`${data.remixes.length} listing(s) remixed from ${data.slug}`);
+for (const l of data.remixes) {
+  console.log(`  ${l.slug} — ${l.title}`);
+}
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Missing `slug` query parameter | Append `?slug=…` |
+| `404` | `not-found` | No listing with that slug | Check the slug via `listMarketplaceListings` |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /getMarketplaceListing](/api-reference/get-marketplace-listing)** — full detail for the source listing, including its own `remixedFromSlug`.
+- **[Remixing guide](/guides/remixing-templates)** — how lineage flows from remix to publish.

@@ -57,6 +57,9 @@ Then run `setup-slideless` once to authenticate. The skill prefers the OTP flow 
 | **`list-presentations`** | List every deck you can access — owned plus shared-with-you. Each row includes a `role` column so the agent knows which decks it can edit. | `slideless list --json` |
 | **`get-presentation`** | Fetch full metadata for one presentation, including each share token's individual access count, last-accessed time, and (for owners) the collaborator list. | `slideless get <presentationId> --json` |
 | **`export-presentation-pdf`** | Convert a local HTML deck to a landscape PDF via a bundled Puppeteer runner. Auto-injects print CSS. | None, purely local |
+| **`publish-to-marketplace`** | Publish the linked deck as a [marketplace](/concepts/marketplace) listing — a remixable `presentation`, `app`, or `plan`. Run from inside a linked deck folder; the key needs the `marketplace:publish` scope. Owner-only. | `slideless publish --kind <presentation\|app\|plan> --description "…"` |
+| **`browse-marketplace`** | Search the public marketplace catalog by topic, kind, tag, or category. No API key needed. | `slideless search [query] --json` |
+| **`remix-template`** | Remix a marketplace listing into a fresh local folder (no `slideless.json`), ready to `push` as your own deck. No API key needed to remix. | `slideless remix <slug>` |
 
 ## A typical session
 
@@ -109,6 +112,9 @@ Each skill lives in its own folder in the plugin repo with a `SKILL.md` describi
 - [`list-presentations/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/list-presentations/SKILL.md)
 - [`get-presentation/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/get-presentation/SKILL.md)
 - [`export-presentation-pdf/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/export-presentation-pdf/SKILL.md)
+- [`publish-to-marketplace/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/publish-to-marketplace/SKILL.md)
+- [`browse-marketplace/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/browse-marketplace/SKILL.md)
+- [`remix-template/SKILL.md`](https://github.com/slideless-ai/plugin/blob/main/skills/remix-template/SKILL.md)
 
 ## Generation styles
 

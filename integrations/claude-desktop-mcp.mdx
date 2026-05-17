@@ -39,8 +39,25 @@ Once connected, ask Claude things like:
 - *"Pin the share link for my pitch deck to version 3."*
 - *"Revoke all share links on the demo deck."*
 - *"Invite alice@studio.com as a collaborator on my onboarding deck."*
+- *"Search the Slideless marketplace for a pitch-deck template."*
+- *"Remix the `q4-pitch-template` listing and start a new deck from it."*
+- *"Publish my linked deck to the marketplace as a remixable template."*
 
 Claude picks the right tool — list, upload, share, invite, pin, revoke, delete, and a few more under the hood. Every action runs as your Slideless user, with the same permissions you have in the dashboard.
+
+## Marketplace tools
+
+The connector also exposes the [marketplace](/concepts/marketplace) — the public catalog of remixable presentations:
+
+| Tool | What it does | Auth |
+|---|---|---|
+| `slideless_search_marketplace` | Browse the public catalog by query, kind, tag, category, sort. | None — public |
+| `slideless_get_marketplace_listing` | Fetch one listing's full detail by slug. | None — public |
+| `slideless_remix_listing` | Remix a listing — download its files to start a new presentation. | None — public |
+| `slideless_publish_listing` | Publish one of your presentations as a listing. | Your Slideless user; needs the `marketplace:publish` scope |
+| `slideless_star_listing` / `slideless_unstar_listing` | Star or unstar a listing. | Your Slideless user |
+
+Searching, reading, and remixing listings work even before you sign in, since the marketplace is public. Publishing and starring run as your authenticated Slideless user.
 
 ## Manage your access
 

@@ -1,0 +1,94 @@
+---
+title: "POST /recordMarketplaceRemix"
+description: "Increment a marketplace listing's public remix count. Called automatically when a listing is remixed. No authentication required."
+---
+
+<Note>
+You almost never call this directly — [`slideless remix <slug>`](/cli/commands#slideless-remix-slug-path) records the remix for you after downloading the files. Call it only when you build a custom remix flow on top of the public API.
+</Note>
+
+## When to use
+
+Bump the public **remix count** of a [marketplace](/concepts/marketplace) listing. The CLI's `slideless remix` invokes this after it has written the listing's files locally, so the counter reflects real remixes. The endpoint records a usage signal only — it does not perform or return any file content.
+
+This endpoint is **public** — no API key required.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/recordMarketplaceRemix
+```
+
+## Auth
+
+None. Do not send an `Authorization` header.
+
+## Request body
+
+```json
+{ "slug": "q4-pitch-template" }
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `slug` | string | yes | The listing that was remixed. |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "slug": "q4-pitch-template",
+    "remixCount": 541
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `slug` | string | The listing slug. |
+| `remixCount` | number | The new total after this remix. |
+
+## Examples
+
+### curl
+
+```bash
+curl -sS -X POST \
+  -H "Content-Type: application/json" \
+  -d '{ "slug": "q4-pitch-template" }' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/recordMarketplaceRemix
+```
+
+### Node.js
+
+```js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/recordMarketplaceRemix',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: 'q4-pitch-template' }),
+  }
+);
+
+const { data } = await res.json();
+console.log(`Remix count is now ${data.remixCount}`);
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Missing `slug` in the body | Include `slug` |
+| `404` | `not-found` | No listing with that slug | Check the slug via `listMarketplaceListings` |
+| `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /getMarketplaceListing](/api-reference/get-marketplace-listing)** — read the listing's current counters.
+- **[POST /recordMarketplaceView](/api-reference/record-marketplace-view)** — the sibling endpoint for the view counter.
+- **[GET /listMarketplaceRemixes](/api-reference/list-marketplace-remixes)** — listings remixed from a given listing.
+- **[Remixing guide](/guides/remixing-templates)** — the full remix flow.

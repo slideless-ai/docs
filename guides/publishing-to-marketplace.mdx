@@ -1,0 +1,156 @@
+---
+title: "Publish to the marketplace"
+description: "Turn a presentation into a public, remixable marketplace listing — publish it, manage its metadata, switch it public/unlisted, and take it down."
+---
+
+## TL;DR
+
+```bash
+# from inside a linked deck folder
+slideless publish --kind presentation \
+  --description "A clean pitch-deck starting point with placeholder slides."
+```
+
+This creates a public [marketplace](/concepts/marketplace) listing pinned to the deck's current version. Anyone can then browse it at [slideless.ai/marketplace](https://slideless.ai/marketplace) and `slideless remix <slug>` it. Publishing is free and instant.
+
+## What this does
+
+- Creates a **listing** — a public catalog entry — for the presentation linked to the current folder.
+- **Pins** the listing to the deck's current immutable [version](/concepts/versioning). Later pushes do not move the listing until you explicitly republish.
+- Derives a **slug** from the title (override with `--slug`). The slug is the listing's permanent id in every URL and command.
+- Defaults the listing to **`public`** status — it shows up in search and the catalog immediately.
+
+It does **not** change the underlying presentation, its share tokens, or its collaborators in any way. A listing is a layer on top.
+
+<Note>
+If the deck was created by [remixing](/guides/remixing-templates) another listing, publishing **carries that origin forward automatically** — the new listing records `remixedFromSlug` and its marketplace page shows a "Remixed from &lt;original&gt;" link. There is no flag for this: the lineage rides along from the remix marker through the first push. See [Marketplace › remix lineage](/concepts/marketplace#remix-lineage).
+</Note>
+
+## Prerequisites
+
+- A presentation already pushed, so the folder has a `slideless.json` linking it. Get there with [`slideless push`](/cli/commands#slideless-push-path).
+- An authenticated CLI session — [`slideless auth login-request` + `login-complete`](/cli/auth), or `slideless login` to paste a dashboard key.
+- The active key needs the **`marketplace:publish`** scope. See [API keys](/concepts/api-keys#scopes).
+- You must be the deck **owner**. Dev collaborators cannot publish.
+
+## Step by step
+
+### 1. Link (or confirm) the deck folder
+
+`slideless publish` runs **inside a linked deck folder** — the one with `slideless.json`. If you started from `generate-presentation` or a remix, push it first:
+
+```bash
+cd ./my-deck
+slideless push --title "Q4 Pitch Template"
+```
+
+### 2. Publish
+
+Run `publish` from the deck folder. `--kind` and `--description` are required; everything else is optional.
+
+```bash
+slideless publish \
+  --kind presentation \
+  --description "A clean pitch-deck starting point: title, problem, solution, ask." \
+  --tags pitch,startup,minimal \
+  --category business
+```
+
+Pick the [`kind`](/concepts/marketplace#the-three-kinds) deliberately — categorize by **purpose** (*message / machine / blueprint*):
+
+- `--kind presentation` — the **message**: a deck people are meant to **view**, whose value is your content. Static or interactive.
+- `--kind app` — the **machine**: a self-contained browser app people are meant to **operate** (e.g. a single-file calculator). Always interactive.
+- `--kind plan` — the **blueprint**: an agent-executable build plan. Publishable now; its full agent-executable format lands in a later phase.
+
+Then decide on **`--interactive`**. Interactivity is a *badge, not a category*: a `presentation` can be static or interactive — pass `--interactive` to flag it. An `app` is always interactive (the flag is forced on). An interactive parametric cost-quote is a `presentation --interactive`, not an `app`, because its value is your content.
+
+Useful flags:
+
+| Flag | Purpose |
+|---|---|
+| `--kind <presentation\|app\|plan>` | **Required.** The listing's purpose — message, machine, or blueprint. |
+| `--interactive` | Mark the listing interactive. Optional; forced on for `app`, off by default for `presentation`. |
+| `--description "<text>"` | **Required.** One- or two-line summary shown in the catalog. |
+| `--slug <slug>` | Override the auto-derived slug. Must be unique; lowercase, hyphenated. |
+| `--title <title>` | Listing title. Defaults to the presentation's title. |
+| `--tags a,b,c` | Comma-separated search tags. |
+| `--category <name>` | Single category bucket for catalog filtering. |
+| `--version <N>` | Pin to a specific version instead of the current one. |
+
+On success the CLI prints the slug and the public URL:
+
+```
+✓ Published  slug: q4-pitch-template
+  https://slideless.ai/marketplace/q4-pitch-template
+  kind: presentation · interactive: false · version: 3 · status: public
+```
+
+### 3. Manage the listing
+
+Inspect it any time — no key needed for `get`:
+
+```bash
+slideless listing get q4-pitch-template
+```
+
+Edit metadata, change visibility, or move the version pin with `listing update`:
+
+```bash
+# polish the copy
+slideless listing update q4-pitch-template \
+  --title "Q4 Pitch Template" \
+  --description "Investor-ready pitch skeleton — 8 slides, placeholder copy." \
+  --readme ./LISTING.md \
+  --tags pitch,startup,investor
+
+# hide it from search but keep the slug shareable
+slideless listing update q4-pitch-template --status unlisted
+
+# point the listing at a newer pushed version
+slideless listing update q4-pitch-template --republish-version
+```
+
+`--republish-version` re-pins the listing to the deck's **current** version. Until you run it, the listing keeps serving whatever version you originally published — see [Marketplace › lifecycle](/concepts/marketplace#how-it-relates-to-the-presentation-lifecycle).
+
+### 4. Take it down
+
+```bash
+slideless unpublish q4-pitch-template          # asks to confirm
+slideless unpublish q4-pitch-template --yes    # skip the prompt (scripts, CI)
+```
+
+`unpublish` removes the listing from the catalog. The presentation itself is untouched. It **prompts for confirmation** first — pass `--yes` to skip it, which is required in `--json` / non-interactive mode. You must `unpublish` before you can [`slideless delete`](/cli/commands#slideless-delete-presentationid) the underlying deck.
+
+## From the plugin (Claude Code / Cursor)
+
+Invoke the `publish-to-marketplace` skill from a linked deck folder:
+
+```
+> /slideless:publish-to-marketplace
+  kind: presentation
+  description: "A clean pitch-deck starting point with placeholder slides."
+```
+
+The skill wraps `slideless publish --json`, checks the folder is linked and the key has `marketplace:publish`, and reports the resulting slug and URL.
+
+## From Claude Desktop (MCP)
+
+Ask Claude: *"Publish my linked deck to the Slideless marketplace as a presentation."* Claude calls the `slideless_publish_listing` tool. See [Claude Desktop (MCP)](/integrations/claude-desktop-mcp).
+
+## Troubleshooting
+
+| `error.code` | When | What to do |
+|---|---|---|
+| `unauthenticated` | Missing or invalid API key | Run `slideless login`, or pass `--api-key`. |
+| `permission-denied` | Key lacks `marketplace:publish`, or caller is not the owner | Recreate the key with the `marketplace:publish` scope; publish from the owner's account. |
+| `not-found` | Folder has no `slideless.json` | `cd` into a linked deck folder, or `slideless push` first. |
+| `slug-taken` | The slug is already in use | Pass a different `--slug`. |
+| `invalid-argument` | Missing `--kind` / `--description`, or bad slug syntax | Supply both required flags; slugs are lowercase and hyphenated. |
+| `conflict` | Deck already has a listing | Use `slideless listing update` instead of `publish`. |
+
+## Related
+
+- [Marketplace concept](/concepts/marketplace) — listings, `kind`, public/unlisted, stars.
+- [Remixing templates](/guides/remixing-templates) — the other side of the marketplace.
+- [`POST /publishMarketplaceListing`](/api-reference/publish-listing) — the endpoint `publish` calls.
+- [API keys](/concepts/api-keys#scopes) — the `marketplace:publish` scope.

@@ -48,6 +48,7 @@ When you create an organization key, you pick scopes:
 |---|---|
 | `presentations:write` | Push new content, share/unshare, invite collaborators, delete presentations |
 | `presentations:read` | List your presentations, get presentation metadata |
+| `marketplace:publish` | Publish, unpublish, and update [marketplace](/concepts/marketplace) listings, and star/unstar listings |
 
 A key without the relevant scope returns `permission-denied` (HTTP `403`) from the affected endpoint. Pick the narrowest scope set that fits the use case. A script that only lists decks should use `presentations:read` only.
 

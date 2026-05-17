@@ -371,6 +371,146 @@ Flags:
 
 Recipients cannot change their own version — there is no query-param override. Use `slideless get <presentationId>` to inspect every token's current `versionMode`. See [Versioning](/concepts/versioning).
 
+## Marketplace
+
+The [marketplace](/concepts/marketplace) is a public, npm-style catalog of remixable presentations. These verbs publish, browse, and remix listings:
+
+| Verb | Job | Key needed? |
+|---|---|---|
+| `publish` | Publish a linked deck as a listing | Yes — `marketplace:publish` scope |
+| `unpublish` | Take a listing down | Yes |
+| `remix` | Download a listing into a fresh local folder | No |
+| `search` | Browse the public catalog | No |
+| `listing get` | Show one listing's full detail | No |
+| `listing update` | Edit a listing's metadata, status, or version pin | Yes |
+| `star` / `unstar` | Add/remove a star on a listing | Yes |
+| `stars` | List the listings you've starred | Yes |
+
+### `slideless publish`
+
+Publish the presentation linked to the **current folder** as a marketplace listing, pinned to its current immutable version. Run from inside a linked deck folder (one with `slideless.json`). Owner-only. The active key needs the `marketplace:publish` scope.
+
+```bash
+slideless publish --kind presentation --description "A clean pitch-deck starting point."
+slideless publish --kind app --description "A standalone ROI calculator." \
+  --slug roi-calculator --tags finance,calculator --category business
+slideless publish --kind presentation --interactive --description "A parametric cost-quote deck."
+slideless publish --kind presentation --description "..." --version 3   # pin a specific version
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--kind <presentation\|app\|plan>` | **Required.** Categorizes the listing by purpose. `presentation` = the message (a deck you view); `app` = the machine (a self-contained app you operate); `plan` = the blueprint (an agent-executable build plan). |
+| `--interactive` | Mark the listing as interactive. Optional. Forced on for `--kind app`; defaults off for `--kind presentation`. Interactivity is a badge, not a category. |
+| `--description <text>` | **Required.** One- or two-line catalog summary. |
+| `--slug <slug>` | Override the auto-derived slug. Lowercase, hyphenated, unique. |
+| `--title <title>` | Listing title. Defaults to the presentation's title. |
+| `--tags a,b,c` | Comma-separated search tags. |
+| `--category <name>` | Single category bucket. |
+| `--version <N>` | Pin to a specific version. Default: the deck's current version. |
+
+The listing is created `public`. See the [publishing guide](/guides/publishing-to-marketplace).
+
+### `slideless unpublish <slug>`
+
+Remove a listing from the marketplace. The underlying presentation is untouched. Owner-only.
+
+```bash
+slideless unpublish q4-pitch-template          # interactive — asks to confirm
+slideless unpublish q4-pitch-template --yes    # skip the prompt (scripts, CI)
+```
+
+`unpublish` prompts for confirmation before taking the listing down — mirroring [`slideless delete`](/cli/commands#slideless-delete-presentationid). Pass `--yes` to skip the prompt; it is **required** in `--json` / non-interactive mode, where there is no TTY to confirm on.
+
+You must `unpublish` a listing before you can `slideless delete` the presentation behind it.
+
+### `slideless remix <slug> [path]`
+
+Download a listing's files into a **fresh local folder**. No API key required. The folder is written with **no `slideless.json`** — it is not linked to any presentation. Increments the listing's public remix count.
+
+```bash
+slideless remix q4-pitch-template               # → ./q4-pitch-template/
+slideless remix q4-pitch-template ./my-pitch     # explicit destination
+```
+
+The destination must be empty or new. Alongside the deck files, `remix` writes a **`.slideless-remix.json`** marker recording the source slug, version, and title. The first `slideless push` from the folder reads that marker and stores the lineage on the new presentation permanently — so a listing you later publish shows "Remixed from &lt;original&gt;". The marker is excluded from the uploaded deck; delete it before the first push if you want an uncredited copy.
+
+To turn the remixed folder into your own deck, run `slideless push` from inside it — that first push creates a brand-new presentation you own. See the [remixing guide](/guides/remixing-templates).
+
+### `slideless search [query]`
+
+Browse the public marketplace catalog. No API key required.
+
+```bash
+slideless search "pitch deck"
+slideless search --kind app --tag finance --sort popular
+slideless search "pricing" --kind presentation --interactive --category business --sort stars --json
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--kind <presentation\|app\|plan>` | Filter to one kind — presentations, apps, or plans. |
+| `--interactive` | Filter to interactive listings only. |
+| `--tag <tag>` | Filter by a search tag. |
+| `--category <name>` | Filter by category bucket. |
+| `--sort recent\|popular\|stars` | Order — newest, most-remixed, most-starred. Default `recent`. |
+| `--json` | Stable JSON output. |
+
+### `slideless listing get <slug>`
+
+Show full detail for one listing — README, tags, counters, file manifest. No API key required. Works for both `public` and `unlisted` listings.
+
+```bash
+slideless listing get q4-pitch-template
+slideless listing get q4-pitch-template --json
+```
+
+The output includes all three public counters — **stars** (`starCount`), **remixes** (`remixCount`), and **views** (`viewCount`). If the listing was published from a remixed deck, it shows **"Remixed from &lt;original&gt;"** with the source slug (`remixedFromSlug`). If other listings were remixed from it, it lists them under **"Remixes of this"** (the descendants from [`GET /listMarketplaceRemixes`](/api-reference/list-marketplace-remixes)). See [Marketplace › remix lineage](/concepts/marketplace#remix-lineage).
+
+### `slideless listing update <slug>`
+
+Edit a listing you own — metadata, visibility, or version pin. Owner-only.
+
+```bash
+slideless listing update q4-pitch-template --description "Updated 8-slide skeleton."
+slideless listing update q4-pitch-template --status unlisted
+slideless listing update q4-pitch-template --republish-version   # re-pin to current deck version
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--title <text>` | New listing title. |
+| `--description <text>` | New catalog summary. |
+| `--readme <path>` | Path to a Markdown file used as the listing's long-form README. |
+| `--tags a,b,c` | Replace the search tags. |
+| `--category <name>` | Change the category bucket. |
+| `--status <public\|unlisted>` | Switch discoverability. `public` shows in search; `unlisted` is reachable only by direct slug. |
+| `--republish-version` | Re-pin the listing to the deck's **current** version. |
+
+### `slideless star <slug>` / `slideless unstar <slug>`
+
+Add or remove a star on a listing. A key is required (so stars are attributed to an account). Star count feeds `slideless search --sort stars`.
+
+```bash
+slideless star q4-pitch-template
+slideless unstar q4-pitch-template
+```
+
+### `slideless stars`
+
+List the listings you've starred. Requires a key.
+
+```bash
+slideless stars
+slideless stars --json
+```
+
 ## Config
 
 ### `slideless config show`
@@ -412,8 +552,9 @@ Common `code` values (share / presentations):
 | Code | Meaning |
 |---|---|
 | `unauthenticated` | Missing or invalid API key |
-| `permission-denied` | Key valid but lacks the required scope, or caller is not owner/dev |
-| `not-found` | The `presentationId` or `collaboratorId` doesn't exist |
+| `permission-denied` | Key valid but lacks the required scope (e.g. `marketplace:publish`), or caller is not owner/dev |
+| `not-found` | The `presentationId`, `collaboratorId`, or marketplace `slug` doesn't exist |
+| `slug-taken` | A marketplace `--slug` is already in use by another listing |
 | `conflict` | Push lagging behind server (409). Pull and retry, or pass `--force`. |
 | `collaborator-limit-reached` | Hit the 10-per-deck cap on concurrent invites |
 | `invalid-email` | Email in `--email` is not a valid address |

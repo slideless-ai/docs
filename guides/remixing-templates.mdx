@@ -1,0 +1,167 @@
+---
+title: "Remix a marketplace listing"
+description: "Find a presentation, app, or plan in the Slideless marketplace and remix it into a fresh local folder to start your own presentation."
+---
+
+## TL;DR
+
+```bash
+slideless search "pitch deck" --kind presentation
+slideless remix q4-pitch-template ./my-pitch
+```
+
+`remix` downloads the listing's files into a fresh folder. No account needed. The folder has **no `slideless.json`** — it's a clean starting point. Run `slideless push` from it to create your own presentation.
+
+## What this does
+
+- **`slideless search`** queries the public [marketplace](/concepts/marketplace) catalog — no API key required.
+- **`slideless remix <slug>`** downloads the files of the listing's pinned [version](/concepts/versioning) into a new local folder, and increments the listing's public remix count.
+- The remixed folder is **not linked to any presentation** — there is no `slideless.json` in it. It is *yours* to push as a new deck.
+- `remix` also drops a small **`.slideless-remix.json`** marker so that, if you later publish, your listing can credit the original. See [The remix-lineage marker](#the-remix-lineage-marker) below.
+
+Remixing is not collaboration. It produces a brand-new presentation that you own, with no link back to the original. See [Remix is not collaboration](/concepts/marketplace#remix-is-not-collaboration).
+
+## Prerequisites
+
+- For **searching and remixing**: nothing — no account, no API key.
+- For the **follow-up `push`**: an authenticated CLI session ([`slideless auth login-request` + `login-complete`](/cli/auth), or `slideless login`) and a key with `presentations:write`.
+
+## Step by step
+
+### 1. Find a listing
+
+```bash
+# free-text search
+slideless search "pricing calculator"
+
+# narrow by kind, tag, category, and sort
+slideless search --kind app --tag finance --sort popular
+slideless search "pitch" --kind presentation --category business --sort stars
+
+# machine-readable output
+slideless search "pitch" --json
+```
+
+`search` flags:
+
+| Flag | Purpose |
+|---|---|
+| `--kind <presentation\|app\|plan>` | Filter to one [kind](/concepts/marketplace#the-three-kinds) — presentations, apps, or plans. |
+| `--interactive` | Filter to interactive listings only. |
+| `--tag <tag>` | Filter by a search tag. |
+| `--category <name>` | Filter by category bucket. |
+| `--sort recent\|popular\|stars` | Order: newest, most-remixed, or most-starred. Default `recent`. |
+| `--json` | Stable JSON output. |
+
+Inspect a candidate before remixing — `listing get` needs no key:
+
+```bash
+slideless listing get q4-pitch-template
+```
+
+<Note>
+Remixing works for all three [kinds](/concepts/marketplace#the-three-kinds). A `presentation` is a deck whose value is the author's content — remix it to make the message yours. An `app` is a self-contained tool meant to be **run** as-is — open it directly, and only remix it if you want to change the app itself. A `plan` is a build blueprint — remix it as the starting point for an agent-driven build.
+</Note>
+
+### 2. Remix it
+
+```bash
+slideless remix q4-pitch-template ./my-pitch
+```
+
+This writes the listing's files into `./my-pitch`. If you omit the path, the CLI creates a folder named after the slug. The destination must be empty (or new).
+
+The folder you get is a plain copy of the deck — `index.html` and any sibling assets — with **no `slideless.json`**. That is deliberate: the folder is not linked to the original listing or to any presentation. You are starting fresh.
+
+Alongside the files, `remix` writes one extra file: **`.slideless-remix.json`**, the remix-lineage marker (covered [below](#the-remix-lineage-marker)).
+
+```
+✓ Remixed  q4-pitch-template → ./my-pitch
+  files written: 9 · NOT linked (no slideless.json)
+  lineage: .slideless-remix.json written (remixed from q4-pitch-template@3)
+  next: edit, then `slideless push ./my-pitch --title "..."`
+```
+
+### 3. Make it yours
+
+Edit the files however you like, then `push` to create your own presentation:
+
+```bash
+cd ./my-pitch
+# edit index.html, swap copy, replace assets …
+slideless push --title "Acme Series A Pitch"
+```
+
+That first push creates a **new** presentation in **your** organization and writes a fresh `slideless.json`. From here it behaves like any deck — [share](/concepts/share-tokens) it, [invite collaborators](/concepts/collaboration), and even [publish your own listing](/guides/publishing-to-marketplace).
+
+<Warning>
+Don't run `slideless push` expecting it to update the original listing. A remixed folder has no link to the source — the first push always creates a separate, independent presentation.
+</Warning>
+
+## The remix-lineage marker
+
+`slideless remix` writes a small marker file, **`.slideless-remix.json`**, into the fresh folder. It is *not* a `slideless.json` — the folder stays unlinked. The marker only records where the files came from:
+
+```json
+{
+  "remixedFromSlug": "q4-pitch-template",
+  "remixedFromVersion": 3,
+  "remixedFromTitle": "Q4 Pitch Template",
+  "remixedAt": "2026-05-17T09:12:00.000Z"
+}
+```
+
+The marker is **excluded from the uploaded deck** — like `slideless.json`, it never becomes part of your presentation's files.
+
+### How lineage flows: remix → push → publish
+
+1. **`slideless remix`** writes `.slideless-remix.json` into the new folder.
+2. **The first `slideless push`** from that folder reads the marker and sends the lineage to the backend. It is stored on the new presentation **once, at creation time, and is immutable** — every subsequent push keeps the same lineage.
+3. **`slideless publish`** from that presentation **copies the lineage onto the listing**. The published listing exposes `remixedFromSlug` / `remixedFromTitle`, and its marketplace page shows a **"Remixed from &lt;original&gt;"** link back to the source listing.
+
+So a deck only needs to be remixed once for the credit to follow it all the way to a published listing — no flags, nothing to configure.
+
+### If you delete the marker
+
+| When you delete `.slideless-remix.json` | Effect |
+|---|---|
+| **Before the first `push`** | Lineage is **lost**. The push has nothing to read, so the presentation is created with no origin and any listing you publish from it will not show "Remixed from …". |
+| **After the first `push`** | **Harmless.** The server already has the lineage permanently. Later pushes stay linked, and publishing still records "Remixed from …". |
+
+If you *want* a clean, uncredited copy, delete the marker before pushing. Otherwise leave it in place — it costs nothing and carries the attribution forward.
+
+## From the plugin (Claude Code / Cursor)
+
+Two skills cover this flow:
+
+- **`browse-marketplace`** — wraps `slideless search --json`; ask for presentations, apps, or plans by topic, kind, or tag.
+- **`remix-template`** — wraps `slideless remix --json`; give it a slug and an optional destination path, and it reports the new folder.
+
+```
+> /slideless:browse-marketplace
+  query: "pitch deck"  kind: presentation
+
+> /slideless:remix-template
+  slug: q4-pitch-template
+  path: ./my-pitch
+```
+
+## From Claude Desktop (MCP)
+
+Ask Claude: *"Search the Slideless marketplace for a pricing-calculator app and remix it."* Claude uses `slideless_search_marketplace`, `slideless_get_marketplace_listing`, and `slideless_remix_listing`. See [Claude Desktop (MCP)](/integrations/claude-desktop-mcp).
+
+## Troubleshooting
+
+| `error.code` | When | What to do |
+|---|---|---|
+| `not-found` | No listing with that slug | Re-check the slug with `slideless search`. |
+| `invalid-argument` | Destination folder is not empty | Pick a new or empty path. |
+| `unauthenticated` | Hit on the follow-up `push`, not on `remix` | `remix` needs no key; `push` does — run `slideless login`. |
+
+## Related
+
+- [Marketplace concept](/concepts/marketplace) — listings, `kind`, stars, remixes, views, lineage.
+- [Publishing to the marketplace](/guides/publishing-to-marketplace) — the other side.
+- [`GET /listMarketplaceListings`](/api-reference/list-marketplace-listings) — the endpoint `search` calls.
+- [`POST /recordMarketplaceRemix`](/api-reference/record-remix) — what `remix` records.
+- [`GET /listMarketplaceRemixes`](/api-reference/list-marketplace-remixes) — descendants of a listing ("Remixes of this").

@@ -1,0 +1,119 @@
+---
+title: "GET /getMarketplaceListing"
+description: "Fetch one marketplace listing by slug, including its README and file manifest. Works for public and unlisted listings. No authentication required."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless listing get <slug>` (or `slideless listing get <slug> --json`).
+</Note>
+
+## When to use
+
+Inspect one [marketplace](/concepts/marketplace) listing in detail — its README, tags, counters, and the file manifest of the pinned version. Works for both `public` and `unlisted` listings: an unlisted listing is reachable here by anyone who knows its slug — the slug is the only secret.
+
+This endpoint is **public** — no API key — and its responses are **cached**.
+
+## Endpoint
+
+```
+GET https://europe-west1-slideless-ai.cloudfunctions.net/getMarketplaceListing?slug={slug}
+```
+
+## Auth
+
+None. Do not send an `Authorization` header.
+
+## Query parameters
+
+| Param | Type | Description |
+|---|---|---|
+| `slug` | string | The listing slug. **Required.** |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "slug": "q4-pitch-template",
+    "title": "Q4 Pitch Template",
+    "description": "Investor-ready pitch skeleton — 8 slides, placeholder copy.",
+    "readme": "# Q4 Pitch Template\n\nA clean 8-slide skeleton…",
+    "kind": "presentation",
+    "interactive": false,
+    "category": "business",
+    "tags": ["pitch", "startup", "investor"],
+    "status": "public",
+    "version": 3,
+    "stars": 128,
+    "remixCount": 540,
+    "viewCount": 3120,
+    "remixedFromSlug": null,
+    "remixedFromTitle": null,
+    "entry": "index.html",
+    "files": [
+      { "path": "index.html", "bytes": 24800 },
+      { "path": "styles.css", "bytes": 4100 }
+    ],
+    "totalBytes": 28900,
+    "createdAt": "2026-04-15T10:00:00.000Z",
+    "updatedAt": "2026-04-18T15:30:00.000Z",
+    "marketplaceUrl": "https://slideless.ai/marketplace/q4-pitch-template"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `slug`, `title`, `description` | string | Display metadata. |
+| `readme` | string \| null | Long-form Markdown shown on the listing page. |
+| `kind` | `"presentation"` \| `"app"` \| `"plan"` | The listing's purpose. See [The three kinds](/concepts/marketplace#the-three-kinds). |
+| `interactive` | boolean | Whether the listing is interactive. A badge, not a category — always `true` for `app`. |
+| `category` | string \| null | Category bucket. |
+| `tags` | string[] | Search tags. |
+| `status` | `"public"` \| `"unlisted"` | Discoverability. See [Public vs unlisted](/concepts/marketplace#public-vs-unlisted). |
+| `version` | number | The pinned source version. |
+| `stars`, `remixCount`, `viewCount` | number | Public counters — stars, `slideless remix` runs, and listing-page opens. |
+| `remixedFromSlug` | string \| null | If this listing was published from a remixed deck, the source listing's slug; otherwise `null`. See [Remix lineage](/concepts/marketplace#remix-lineage). |
+| `remixedFromTitle` | string \| null | The source listing's title, or `null`. |
+| `entry` | string | The deck's entry HTML file. |
+| `files` | array | Manifest of the pinned version — `path` and `bytes` per file. |
+| `totalBytes` | number | Sum of all file sizes. |
+| `createdAt`, `updatedAt` | ISO 8601 string | Timestamps. |
+| `marketplaceUrl` | string | The public website URL. |
+
+## Examples
+
+### curl
+
+```bash
+curl -sS "https://europe-west1-slideless-ai.cloudfunctions.net/getMarketplaceListing?slug=q4-pitch-template"
+```
+
+### Node.js
+
+```js
+const slug = 'q4-pitch-template';
+const res = await fetch(
+  `https://europe-west1-slideless-ai.cloudfunctions.net/getMarketplaceListing?slug=${slug}`
+);
+
+const { data: listing } = await res.json();
+console.log(`${listing.title} (${listing.kind}) — v${listing.version} — ★${listing.stars}`);
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Missing `slug` query parameter | Append `?slug=…` |
+| `404` | `not-found` | No listing with that slug | Check the slug via `listMarketplaceListings` |
+| `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /listMarketplaceListings](/api-reference/list-marketplace-listings)** — browse the catalog.
+- **[GET /listMarketplaceRemixes](/api-reference/list-marketplace-remixes)** — listings remixed from this one.
+- **[POST /recordMarketplaceView](/api-reference/record-marketplace-view)** — bump the view counter.
+- **[POST /recordMarketplaceRemix](/api-reference/record-remix)** — record a remix.

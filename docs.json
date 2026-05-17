@@ -69,6 +69,7 @@
           "concepts/versioning",
           "concepts/share-tokens",
           "concepts/collaboration",
+          "concepts/marketplace",
           "concepts/api-keys"
         ]
       },
@@ -89,7 +90,9 @@
           "guides/working-with-assets",
           "guides/custom-fonts",
           "guides/uploading-via-api",
-          "guides/sharing-via-email"
+          "guides/sharing-via-email",
+          "guides/publishing-to-marketplace",
+          "guides/remixing-templates"
         ]
       },
       {
@@ -123,7 +126,13 @@
           "api-reference/uninvite-collaborator",
           "api-reference/list-collaborators",
           "api-reference/get-shared-presentation",
-          "api-reference/verify-api-key"
+          "api-reference/verify-api-key",
+          "api-reference/list-marketplace-listings",
+          "api-reference/get-marketplace-listing",
+          "api-reference/list-marketplace-remixes",
+          "api-reference/publish-listing",
+          "api-reference/record-remix",
+          "api-reference/record-marketplace-view"
         ]
       }
     ],

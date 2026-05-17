@@ -1,0 +1,96 @@
+---
+title: "POST /recordMarketplaceView"
+description: "Increment a marketplace listing's public view count. Called automatically when a listing page opens. No authentication required."
+---
+
+<Note>
+You almost never call this directly — the [marketplace website](https://slideless.ai/marketplace) fires it when a listing page opens. Call it only when you build a custom marketplace front end on top of the public API.
+</Note>
+
+## When to use
+
+Bump the public **view count** of a [marketplace](/concepts/marketplace) listing — the number of times its page has been opened. The marketplace site invokes this once per listing per browser session: a refresh in the same session does not double-count, so the counter tracks distinct page opens rather than raw hits.
+
+The endpoint records a usage signal only — it does not return any listing content.
+
+This endpoint is **public** — no API key required.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/recordMarketplaceView
+```
+
+## Auth
+
+None. Do not send an `Authorization` header.
+
+## Request body
+
+```json
+{ "slug": "q4-pitch-template" }
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `slug` | string | yes | The listing whose page was opened. |
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "slug": "q4-pitch-template",
+    "viewCount": 3121
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `slug` | string | The listing slug. |
+| `viewCount` | number | The new total after this view. |
+
+## Examples
+
+### curl
+
+```bash
+curl -sS -X POST \
+  -H "Content-Type: application/json" \
+  -d '{ "slug": "q4-pitch-template" }' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/recordMarketplaceView
+```
+
+### Node.js
+
+```js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/recordMarketplaceView',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: 'q4-pitch-template' }),
+  }
+);
+
+const { data } = await res.json();
+console.log(`View count is now ${data.viewCount}`);
+```
+
+To avoid inflating the counter, fire this **once per session per listing** — for example, guard it behind a `sessionStorage` flag keyed on the slug.
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Missing `slug` in the body | Include `slug` |
+| `404` | `not-found` | No listing with that slug | Check the slug via `listMarketplaceListings` |
+| `405` | `method-not-allowed` | Used GET/PUT/etc. | Use `POST` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /getMarketplaceListing](/api-reference/get-marketplace-listing)** — read the listing's current `viewCount`.
+- **[POST /recordMarketplaceRemix](/api-reference/record-remix)** — the sibling endpoint for the remix counter.

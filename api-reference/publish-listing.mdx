@@ -1,0 +1,130 @@
+---
+title: "POST /publishMarketplaceListing"
+description: "Publish a presentation as a marketplace listing pinned to an immutable version. Requires an API key with the marketplace:publish scope."
+---
+
+<Note>
+For most use cases, the [`slideless` CLI](/cli/overview) is easier than calling this endpoint directly. The CLI command equivalent is `slideless publish --kind <presentation|app|plan> --description "…"`, run from inside a linked deck folder.
+</Note>
+
+## When to use
+
+Turn a presentation you own into a public [marketplace](/concepts/marketplace) listing. The listing is **pinned** to one immutable [version](/concepts/versioning) of the deck — later pushes do not move it. To re-pin, call this endpoint again or use [`slideless listing update --republish-version`](/cli/commands#slideless-listing-update-slug).
+
+Publishing is free and instant — there is no review queue.
+
+## Endpoint
+
+```
+POST https://europe-west1-slideless-ai.cloudfunctions.net/publishMarketplaceListing
+```
+
+## Auth
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer cko_…` — must belong to the presentation's owner |
+
+The key must carry the **`marketplace:publish`** scope. See [API keys](/concepts/api-keys#scopes).
+
+## Request body
+
+```json
+{
+  "presentationId": "0192f1c3-...",
+  "kind": "presentation",
+  "interactive": false,
+  "description": "Investor-ready pitch skeleton — 8 slides, placeholder copy.",
+  "slug": "q4-pitch-template",
+  "title": "Q4 Pitch Template",
+  "tags": ["pitch", "startup", "investor"],
+  "category": "business",
+  "version": 3
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `presentationId` | UUIDv7 string | yes | The deck to publish. Caller must be its owner. |
+| `kind` | `"presentation"` \| `"app"` \| `"plan"` | yes | The listing's purpose — message, machine, or blueprint. See [The three kinds](/concepts/marketplace#the-three-kinds). |
+| `interactive` | boolean | no | Whether the listing is interactive. The backend forces `true` for `app`; defaults to `false` for `presentation`. |
+| `description` | string | yes | One- or two-line catalog summary. |
+| `slug` | string | no | Permanent listing id. Lowercase, hyphenated, unique. Auto-derived from the title if omitted. |
+| `title` | string | no | Listing title. Defaults to the presentation's title. |
+| `tags` | string[] | no | Search tags. |
+| `category` | string | no | Category bucket. |
+| `version` | number | no | Version to pin. Defaults to the deck's current version. |
+
+The listing is created with `status: "public"`. Use [`updateMarketplaceListing`](/cli/commands#slideless-listing-update-slug) to switch it to `unlisted`.
+
+## Response (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "slug": "q4-pitch-template",
+    "kind": "presentation",
+    "interactive": false,
+    "version": 3,
+    "status": "public",
+    "marketplaceUrl": "https://slideless.ai/marketplace/q4-pitch-template"
+  }
+}
+```
+
+## Examples
+
+### curl
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $SLIDELESS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "presentationId": "0192f1c3-...",
+    "kind": "presentation",
+    "description": "Investor-ready pitch skeleton — 8 slides, placeholder copy.",
+    "tags": ["pitch", "startup"]
+  }' \
+  https://europe-west1-slideless-ai.cloudfunctions.net/publishMarketplaceListing
+```
+
+### Node.js
+
+```js
+const res = await fetch(
+  'https://europe-west1-slideless-ai.cloudfunctions.net/publishMarketplaceListing',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SLIDELESS_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      presentationId: '0192f1c3-...',
+      kind: 'presentation',
+      description: 'Investor-ready pitch skeleton — 8 slides, placeholder copy.',
+    }),
+  }
+);
+
+const { data } = await res.json();
+console.log(`Published: ${data.marketplaceUrl}`);
+```
+
+## Errors
+
+| Status | Code | Cause | Fix |
+|---|---|---|---|
+| `400` | `invalid-argument` | Missing `kind`/`description`, or bad slug syntax | Supply both required fields; slugs are lowercase/hyphenated |
+| `401` | `unauthenticated` | Missing or invalid API key | Set `Authorization` |
+| `403` | `permission-denied` | Key lacks `marketplace:publish`, or caller is not the owner | Recreate the key with the scope; publish from the owner's account |
+| `404` | `not-found` | `presentationId` unknown | Verify the ID via `listMyPresentations` |
+| `409` | `conflict` | Slug already taken, or the deck already has a listing | Pass a different `slug`, or use `updateMarketplaceListing` |
+| `500` | `internal` | Backend error | Retry with backoff |
+
+## Next
+
+- **[GET /getMarketplaceListing](/api-reference/get-marketplace-listing)** — read back the listing you just published.
+- **[Publishing guide](/guides/publishing-to-marketplace)** — the full end-to-end flow.
