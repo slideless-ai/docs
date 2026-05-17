@@ -126,7 +126,7 @@ Slideless v0.5 collapsed the CLI to eight verbs. Each does one thing:
 | `delete` | Hard-delete a presentation |
 | `list` | Show every deck you can access |
 
-The old `share <path>`, `update`, `revoke`, and `token add` commands are gone.
+A fresh `push` creates an unshared deck; a later `push` from the same folder updates it in place. `share` mints a viewer URL and `unshare` revokes it.
 
 ### `slideless push [path]`
 
@@ -216,12 +216,12 @@ Owners and active dev collaborators can pull. Every byte is re-hashed on the cli
 
 ### `slideless share <presentationId>`
 
-Mint a public viewer URL. Owner-only. Replaces the old `token add` command.
+Mint a public viewer URL. Owner-only.
 
 ```bash
 slideless share 01HXYZ...
 slideless share 01HXYZ... --name "Acme Corp"
-slideless share 01HXYZ... --pin 3                # freeze viewers on v3
+slideless share 01HXYZ... --to-version 3         # freeze viewers on v3
 ```
 
 Flags:
@@ -229,7 +229,7 @@ Flags:
 | Flag | Purpose |
 |---|---|
 | `--name <text>` | Human-readable label for the token. Default: `default`. |
-| `--pin <version>` | Pin the token to a specific version. Default: follows latest. |
+| `--to-version <N>` | Pin the token to a specific version. Default: follows latest. |
 
 ### `slideless unshare <presentationId>`
 
@@ -397,7 +397,7 @@ slideless publish --kind app --description "A standalone ROI calculator." \
 slideless publish --kind plan --description "A Next.js + Firebase SaaS build plan." \
   --stack nextjs,firebase,tailwind
 slideless publish --kind presentation --interactive --description "A parametric cost-quote deck."
-slideless publish --kind presentation --description "..." --version 3   # pin a specific version
+slideless publish --kind presentation --description "..." --to-version 3   # pin a specific version
 ```
 
 Flags:
@@ -412,7 +412,7 @@ Flags:
 | `--tags a,b,c` | Comma-separated search tags. |
 | `--stack a,b,c` | Technologies the artifact is built with or built for, as comma-separated lowercase slugs (e.g. `nextjs,firebase,n8n`). One canonical slug per technology; no display names or versions. Especially useful for `plan` listings. |
 | `--category <name>` | Single category bucket. |
-| `--version <N>` | Pin to a specific version. Default: the deck's current version. |
+| `--to-version <N>` | Pin to a specific version. Default: the deck's current version. |
 
 The listing is created `public`. See the [publishing guide](/guides/publishing-to-marketplace).
 
