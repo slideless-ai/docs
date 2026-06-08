@@ -199,6 +199,8 @@ slideless pull 01HXYZ... --force         # wipe and overwrite a non-empty folder
 
 Owners and active dev collaborators can pull. Every byte is re-hashed on the client and the download aborts if any SHA-256 mismatches the manifest.
 
+`pull` records the deck's entry HTML in `slideless.json` (`entryPath`) so that [`slideless dev`](#local-development) opens the same first page as the hosted viewer. Decks pulled before this existed have no `entryPath`; re-pull to add it (or pass `--entry` to `dev`).
+
 **JSON output:**
 ```json
 {
@@ -540,6 +542,51 @@ Remove config or a specific profile.
 slideless config clear
 slideless config clear --profile work-org
 ```
+
+## Local development
+
+Iterate on a deck locally without pushing. `slideless dev` serves the folder over HTTP, watches every file, and auto-reloads the browser on save — so the `pull → edit → push` loop becomes a live edit loop. It runs **fully offline**: no API key, no upload, no new versions. Publish with `slideless push` only when you're happy.
+
+### `slideless dev [path]`
+
+Serve a deck folder locally with file-watching and live-reload.
+
+```bash
+slideless dev                       # serve the current folder
+slideless dev ./my-deck             # serve a folder
+slideless dev . --port 8080         # pick a port (auto-bumps if taken)
+slideless dev . --no-open           # don't open the browser
+slideless dev . --entry plan.html   # override the first page
+```
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--port <n>` | Port to bind. Default: `5173`. Auto-increments if the port is taken. |
+| `--host <addr>` | Address to bind. Default: `127.0.0.1`. |
+| `--entry <file>` | Entry HTML to open at `/`. Overrides auto-detection. |
+| `--no-open` | Don't open the browser on start. |
+| `--no-reload` | Serve static files only (skip live-reload injection). |
+
+**Entry resolution.** The page served at `/` is picked in this order: `--entry` → the `entryPath` recorded in `slideless.json` (written by `pull`) → `index.html` → the only `.html` in the folder → the first `.html` alphabetically (with a warning). Multi-page decks navigate via their own relative links, and every served HTML page gets the reload script, so auto-reload keeps working as you move between pages.
+
+**Example output:**
+```text
+✓ Slideless dev server running
+
+  URL:     http://127.0.0.1:5173/
+  Folder:  /Users/you/decks/my-deck
+  Entry:   article.html
+  Reload:  on (auto-reload on save)
+
+  Press Ctrl+C to stop.
+```
+
+Notes:
+- The server is **local-only** — other machines can't reach it without a tunnel (e.g. `ngrok`).
+- The same ignore rules as `push` apply: `slideless.json`, `node_modules/`, dotfolders, etc. are never served.
+- `--json` is not supported (the server runs until you stop it with `Ctrl+C`).
 
 ## Error shape (`--json`)
 
