@@ -557,6 +557,7 @@ slideless dev ./my-deck             # serve a folder
 slideless dev . --port 8080         # pick a port (auto-bumps if taken)
 slideless dev . --no-open           # don't open the browser
 slideless dev . --entry plan.html   # override the first page
+slideless dev . --no-annotate       # disable the annotation overlay
 ```
 
 Flags:
@@ -568,6 +569,7 @@ Flags:
 | `--entry <file>` | Entry HTML to open at `/`. Overrides auto-detection. |
 | `--no-open` | Don't open the browser on start. |
 | `--no-reload` | Serve static files only (skip live-reload injection). |
+| `--no-annotate` | Disable the in-browser annotation overlay. |
 
 **Entry resolution.** The page served at `/` is picked in this order: `--entry` → the `entryPath` recorded in `slideless.json` (written by `pull`) → `index.html` → the only `.html` in the folder → the first `.html` alphabetically (with a warning). Multi-page decks navigate via their own relative links, and every served HTML page gets the reload script, so auto-reload keeps working as you move between pages.
 
@@ -579,6 +581,7 @@ Flags:
   Folder:  /Users/you/decks/my-deck
   Entry:   article.html
   Reload:  on (auto-reload on save)
+  Annotate: on (select text to leave a note)
 
   Press Ctrl+C to stop.
 ```
@@ -587,6 +590,35 @@ Notes:
 - The server is **local-only** — other machines can't reach it without a tunnel (e.g. `ngrok`).
 - The same ignore rules as `push` apply: `slideless.json`, `node_modules/`, dotfolders, etc. are never served.
 - `--json` is not supported (the server runs until you stop it with `Ctrl+C`).
+
+### Annotating while you develop
+
+While `slideless dev` is running, you can leave change-requests directly on the rendered deck — handy for review passes before a `push`.
+
+- **Select any text** in the deck → an **+ Add note** button appears → click it, type your remark, and **Save**.
+- Notes are stored in **`.slideless/annotations.json`** at the deck root. That folder is created on first save and is **never uploaded** by `push` (it's in the built-in ignore list), and writing to it does **not** trigger a live-reload.
+- A 📝 badge (bottom-right) shows the count of unprocessed notes. Click it to open a side panel where you can **edit**, **remove**, **jump to** a note's location, and switch between **New** and **Previous** (a `processed` flag on each note).
+- Each note records the selected text, a little surrounding context, and the nearest slide/panel (`data-slide` / `data-panel`) plus its heading — enough for a downstream process to locate and apply the change. Applying the changes is **not** part of the CLI; the file is purely a gathering surface.
+- **Jump-to is best-effort.** If you delete the slide a note was attached to, the note stays in the panel and jump-to simply reports "location not found" — it never breaks.
+- Disable the overlay entirely with `--no-annotate`.
+
+Each annotation looks like:
+
+```json
+{
+  "id": "9b1c…",
+  "createdAt": "2026-06-14T10:00:00.000Z",
+  "processed": false,
+  "note": "Make this headline punchier",
+  "entryFile": "index.html",
+  "selectedText": "Our architecture scales",
+  "context": { "before": "…", "after": "…" },
+  "anchor": {
+    "container": { "kind": "slide", "index": 3, "heading": "Architecture" },
+    "selector": "section[data-slide=\"3\"] .headline"
+  }
+}
+```
 
 ## Error shape (`--json`)
 
