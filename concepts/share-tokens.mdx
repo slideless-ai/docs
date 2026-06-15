@@ -40,6 +40,35 @@ A fresh push does not create any tokens — the deck starts unshared. Run `slide
   **Emailing a deck mints one token per recipient automatically.** When you use [`slideless share-email`](/guides/sharing-via-email), the dashboard's "Share via email" modal, or the `share-presentation-email` plugin skill, each recipient gets their own named token (`name = recipient email`). You don't have to call `slideless share` manually for each one — per-recipient opens show up under that recipient's address in the Share links table.
 </Info>
 
+## Annotator links
+
+Most tokens are **view links** — they grant read-only access to the rendered deck. A token can instead be minted as an **annotator link**, which also lets the holder leave feedback.
+
+| | View link | Annotator link |
+|---|---|---|
+| Read the deck | yes | yes |
+| Leave notes in the viewer | no | yes |
+| Annotation overlay injected | no | yes (only for this link) |
+| Note author | n/a | the token's `name` |
+
+An annotator link injects the same annotation overlay you get in `slideless dev` into the hosted viewer. Anyone who opens it can select text and leave notes; a plain view link cannot. Because the overlay is keyed to the token, only annotator-link holders see it — your ordinary recipients keep getting a clean, read-only deck.
+
+Each note a reviewer leaves is stamped with the link's **name** as its author, so when you collect the feedback you can tell whose comment is whose. Mint a named annotator link with the CLI:
+
+```bash
+# --annotator REQUIRES --name; the name becomes the note author.
+slideless share <presentationId> --name "Marie" --annotator
+
+# Pin reviewers to a specific version
+slideless share <presentationId> --name "Marie" --annotator --to-version 2
+```
+
+Or from the **dashboard**, under the presentation page's **Annotator links** section. Over the HTTP API, [`POST /addPresentationToken`](/api-reference/add-presentation-token) accepts `canAnnotate: true` (which requires a non-empty `tokenName`).
+
+You collect the notes reviewers leave with [`slideless pull-annotations`](/cli/commands#slideless-pull-annotations-presentationid), which merges them into your local `.slideless/annotations.json`. See the [Annotations guide](/guides/annotations) for the full loop.
+
+**Revoking is the same as any token.** An annotator link is just a token with annotation enabled — revoke it with [`slideless unshare <presentationId> --token <tokenId>`](/cli/commands#slideless-unshare-presentationid) (or every token at once). Once revoked, the link returns 403 and the reviewer can no longer view or annotate.
+
 ## Lifecycle
 
 ```

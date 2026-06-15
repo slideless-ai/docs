@@ -1,0 +1,129 @@
+---
+title: "Gather feedback with annotations"
+description: "Leave change-requests on a deck as you build, collect reviewer notes from a shared link, and apply them — all through one local annotations file."
+---
+
+## Overview
+
+Annotations are Slideless's lightweight feedback channel. Instead of a separate doc or a thread of "slide 3, second bullet…" messages, you (and your reviewers) **select text directly on the rendered deck and leave a note on it**. Every note remembers what was selected, where it sits, who wrote it, and which deck version it was about.
+
+There are two sources of notes, and they both land in the **same file** — `.slideless/annotations.json` at the deck root:
+
+| | **Local annotations** | **Hosted annotations** |
+|---|---|---|
+| Who writes them | You, while building | Reviewers you invite |
+| How | The overlay in [`slideless dev`](/cli/commands#slideless-dev-path) | An [annotator link](/concepts/share-tokens#annotator-links) opened in the browser |
+| `source` value | `"local"` | `"hosted"` |
+| Author | Your `--author` / API-key name | The annotator link's name |
+| How they reach the file | Saved directly | Merged in via [`slideless pull-annotations`](/cli/commands#slideless-pull-annotations-presentationid) |
+
+<Note>
+  Annotations live **outside the deck**. The `.slideless/` folder is gitignored, is in the built-in ignore list (so `push` never uploads it), and writing to it does not trigger live-reload. Annotations are a separate, version-stamped feedback stream — they are **not** shipped as deck content.
+</Note>
+
+## Local annotations: notes for yourself
+
+When you run [`slideless dev`](/cli/commands#slideless-dev-path), the served deck gets an annotation overlay.
+
+<Steps>
+  <Step title="Run the dev server">
+    ```bash
+    slideless dev
+    ```
+    The overlay is on by default. Disable it with `--no-annotate`. Set the author for the session with `--author "<name>"` (or the `SLIDELESS_AUTHOR` env var); it defaults to your API key's name.
+  </Step>
+  <Step title="Select text and add a note">
+    Select any text on the deck. A **+ Add note** button appears — click it, type your remark, and **Save**. The note is written to `.slideless/annotations.json` at the deck root, tagged `source: "local"` and stamped with the current `deckVersion` (the pulled version from `slideless.json`, or `null` if the deck was never pushed).
+  </Step>
+  <Step title="Manage notes in the panel">
+    The 📝 badge (bottom-right) shows your open-note count. Open it for a side panel with **Open** and **Done** tabs (driven by each note's `processed` flag), where you can **edit**, **remove**, and **jump to** a note's location. Marking a note done moves it to the **Done** tab.
+  </Step>
+</Steps>
+
+## Hosted annotations: feedback from reviewers
+
+To collect notes from someone else, give them an **annotator link** — a share link that carries the annotation overlay. A plain [view link](/concepts/share-tokens) is read-only and cannot leave notes.
+
+<Steps>
+  <Step title="Mint a named annotator link">
+    The `--annotator` flag **requires** `--name` — the name becomes the author on every note left through this link.
+    ```bash
+    slideless share <presentationId> --name "Marie" --annotator
+    # optionally pin reviewers to a version:
+    slideless share <presentationId> --name "Marie" --annotator --to-version 2 --json
+    ```
+    You can also create one from the presentation page's **Annotator links** section in the dashboard, or over the API with [`POST /addPresentationToken`](/api-reference/add-presentation-token) and `canAnnotate: true`.
+  </Step>
+  <Step title="Reviewers annotate in the browser">
+    Send the URL. Reviewers open it and get the same select-text → add-note overlay — no install, no account. Their notes are stored server-side against the presentation, authored with the link's name.
+  </Step>
+  <Step title="Pull the notes into your deck">
+    From inside the deck folder, run [`slideless pull-annotations`](/cli/commands#slideless-pull-annotations-presentationid) (owner-only):
+    ```bash
+    slideless pull-annotations            # resolves id from slideless.json, defaults to its pulled version
+    slideless pull-annotations <id>       # explicit id → pull across all versions
+    slideless pull-annotations <id> --at 2  # only notes against version 2
+    ```
+    Reviewer notes are merged into the same `.slideless/annotations.json`, tagged `source: "hosted"`. The merge is **deduped by `id`** (re-running is safe) and **never clobbers your local notes**.
+  </Step>
+</Steps>
+
+## The full review loop
+
+Put together, annotations give you a tight feedback-to-ship cycle:
+
+<Steps>
+  <Step title="Share for review">
+    `slideless share <id> --name "<reviewer>" --annotator` — one annotator link per reviewer so you can tell their notes apart.
+  </Step>
+  <Step title="Reviewers leave notes">
+    They open the link and annotate the deck in the browser.
+  </Step>
+  <Step title="Pull the feedback">
+    `slideless pull-annotations` — reviewer notes land in `.slideless/annotations.json` alongside any local notes you left.
+  </Step>
+  <Step title="Apply the changes">
+    You (or an agent) read the notes — each carries the selected text, surrounding context, the nearest slide/panel and heading, the author, and the version — and edit the deck. Mark each note **Done** as you go.
+  </Step>
+  <Step title="Ship a new version">
+    `slideless push` ships the revised deck as a new version. The annotations file stays local; it is never pushed.
+  </Step>
+</Steps>
+
+## One file, two sources
+
+Both flows feed a single file: `{ "version": 2, "annotations": [ ... ] }`. A representative entry:
+
+```json
+{
+  "id": "uuid",
+  "createdAt": "2026-06-15T10:00:00.000Z",
+  "processed": false,
+  "note": "Make this headline punchier",
+  "entryFile": "index.html",
+  "selectedText": "the exact selected string",
+  "context": { "before": "~40 chars", "after": "~40 chars" },
+  "anchor": {
+    "container": { "kind": "slide", "index": 3, "heading": "Architecture" },
+    "selector": "section[data-slide=\"3\"] .headline"
+  },
+  "deckVersion": 1,
+  "source": "local",
+  "author": "Marie (Acme key)"
+}
+```
+
+- `source` distinguishes `"local"` (yours, via `slideless dev`) from `"hosted"` (a reviewer's, via an annotator link).
+- `author` is the note's author, or `null` if unknown.
+- `deckVersion` is the version the note was left against, or `null` if the deck was never pushed.
+- `processed` drives the **Open** / **Done** split in the panel.
+
+See the [annotations file schema](/cli/commands#annotating-while-you-develop) in the command reference for the field-by-field breakdown.
+
+## Related
+
+- [`slideless dev`](/cli/commands#slideless-dev-path) — the local overlay and its `--author` / `--no-annotate` flags
+- [`slideless share`](/cli/commands#slideless-share-presentationid) — mint an annotator link with `--annotator`
+- [`slideless pull-annotations`](/cli/commands#slideless-pull-annotations-presentationid) — collect reviewer notes
+- [Share tokens › Annotator links](/concepts/share-tokens#annotator-links) — view links vs annotator links, and revocation
+- [`POST /addPresentationToken`](/api-reference/add-presentation-token) — the `canAnnotate` flag over HTTP

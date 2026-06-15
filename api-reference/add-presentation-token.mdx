@@ -41,11 +41,22 @@ Recommended scope: `presentations:write`.
 | `presentationId` | string | yes | The `presentationId` of the existing presentation |
 | `tokenName` | string | yes | Human-readable label. Shown in `getSharedPresentationInfo` and the dashboard. |
 | `versionMode` | object | no | Either `{"type":"latest"}` (default) or `{"type":"pinned","version":N}` where N ≤ current version. See [Versioning](/concepts/versioning). |
+| `canAnnotate` | boolean | no | Default `false`. When `true`, mints an **annotator link** — the holder gets the annotation overlay in the viewer and can leave notes. Requires a **non-empty** `tokenName` (it becomes the note author). See [Share tokens › Annotator links](/concepts/share-tokens#annotator-links). |
 
 Example — default (follows latest):
 
 ```json
 { "presentationId": "0192f1c3-...", "tokenName": "Acme Corp" }
+```
+
+Example — annotator link (reviewer can leave notes):
+
+```json
+{
+  "presentationId": "0192f1c3-...",
+  "tokenName": "Marie",
+  "canAnnotate": true
+}
 ```
 
 Example — pinned to v2:
@@ -111,7 +122,7 @@ console.log('Send this URL to the recipient:', data.shareUrl);
 
 | Status | Code | Cause | Fix |
 |---|---|---|---|
-| `400` | `invalid-argument` | `presentationId` or `tokenName` missing or wrong type / empty | Send both as non-empty strings |
+| `400` | `invalid-argument` | `presentationId` or `tokenName` missing or wrong type / empty, or `canAnnotate: true` sent with an empty `tokenName` | Send both as non-empty strings; supply a `tokenName` whenever `canAnnotate` is true |
 | `401` | `unauthenticated` | Missing or invalid API key | Set a valid `Authorization` header |
 | `403` | `permission-denied` | Key's user is not the presentation's owner | Use a key from the owner's account |
 | `404` | `not-found` | No presentation with that `presentationId` | Verify with `listMyPresentations` |

@@ -224,14 +224,26 @@ Mint a public viewer URL. Owner-only.
 slideless share 01HXYZ...
 slideless share 01HXYZ... --name "Acme Corp"
 slideless share 01HXYZ... --to-version 3         # freeze viewers on v3
+slideless share 01HXYZ... --name "Marie" --annotator   # annotator (review) link
 ```
 
 Flags:
 
 | Flag | Purpose |
 |---|---|
-| `--name <text>` | Human-readable label for the token. Default: `default`. |
+| `--name <text>` | Human-readable label for the token. Default: `default`. **Required** when `--annotator` is set — it becomes the note author. |
 | `--to-version <N>` | Pin the token to a specific version. Default: follows latest. |
+| `--annotator` | Mint an **annotator link** instead of a plain view link. Requires `--name`. |
+| `--json` | Stable JSON output (returns the share URL). |
+
+**Annotator links.** A normal view link is read-only. An **annotator link** also injects the annotation overlay into the shared viewer, so anyone who opens it can leave notes — exactly like the local overlay, but in the hosted deck. The note's `author` is set to the link's `--name`. Reviewers just open the URL and select text to annotate; you collect their feedback later with [`slideless pull-annotations`](#slideless-pull-annotations-presentationid).
+
+```bash
+# Mint a named annotator link for a reviewer, pinned to v2
+slideless share 01HXYZ... --name "Marie" --annotator --to-version 2 --json
+```
+
+Revoke an annotator link the same way as any token — [`slideless unshare`](#slideless-unshare-presentationid). See [Share tokens › Annotator links](/concepts/share-tokens#annotator-links) and the [Annotations guide](/guides/annotations).
 
 ### `slideless unshare <presentationId>`
 
@@ -372,6 +384,51 @@ Flags:
 | `--latest` | Follow the current version. Mutually exclusive with `--to-version`. |
 
 Recipients cannot change their own version — there is no query-param override. Use `slideless get <presentationId>` to inspect every token's current `versionMode`. See [Versioning](/concepts/versioning).
+
+### `slideless pull-annotations [presentationId]`
+
+Pull the notes reviewers left through an [annotator link](#slideless-share-presentationid) and merge them into your local **`.slideless/annotations.json`**. Owner-only.
+
+```bash
+# From inside a linked deck folder — resolves the id from slideless.json,
+# defaults to that deck's pulled version
+slideless pull-annotations
+
+# Explicit id — pulls hosted notes across ALL versions
+slideless pull-annotations 01HXYZ...
+
+# Only notes left against version 2
+slideless pull-annotations 01HXYZ... --at 2
+
+# From another folder
+slideless pull-annotations 01HXYZ... --path ./my-deck --json
+```
+
+Run it **inside a deck folder with no arguments** and it resolves the `presentationId` from `slideless.json` and defaults the version filter to that deck's pulled version. Pass an explicit `<presentationId>` to pull across every version instead.
+
+The merge is **additive and safe**:
+
+- Reviewer notes are deduped by `id` — re-running never creates duplicates.
+- Your **local** notes are never clobbered or removed.
+- Pulled notes land in the same file tagged `source: "hosted"`, so the Open/Done panel and any downstream tool see local and reviewer feedback in one stream.
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--at <N>` | Only pull notes left against version N. Default: the deck's pulled version (no-arg form) or all versions (explicit id). |
+| `--path <dir>` | Deck directory to merge into. Default: `.`. |
+| `--json` | Stable JSON output. |
+
+**JSON output:**
+```json
+{
+  "success": true,
+  "data": { "pulled": 3, "skipped": 1, "total": 7 }
+}
+```
+
+`pulled` = new reviewer notes added this run, `skipped` = reviewer notes already present (deduped by `id`), `total` = annotations now in `.slideless/annotations.json` (local + hosted). See the [Annotations guide](/guides/annotations) for the end-to-end review loop.
 
 ## Marketplace
 
@@ -558,6 +615,7 @@ slideless dev . --port 8080         # pick a port (auto-bumps if taken)
 slideless dev . --no-open           # don't open the browser
 slideless dev . --entry plan.html   # override the first page
 slideless dev . --no-annotate       # disable the annotation overlay
+slideless dev . --author "Marie"    # set the note author for this session
 ```
 
 Flags:
@@ -570,6 +628,7 @@ Flags:
 | `--no-open` | Don't open the browser on start. |
 | `--no-reload` | Serve static files only (skip live-reload injection). |
 | `--no-annotate` | Disable the in-browser annotation overlay. |
+| `--author <name>` | Author stamped on every note you leave this session. Default: your API key's name. Overridable via the `SLIDELESS_AUTHOR` env var. |
 
 **Entry resolution.** The page served at `/` is picked in this order: `--entry` → the `entryPath` recorded in `slideless.json` (written by `pull`) → `index.html` → the only `.html` in the folder → the first `.html` alphabetically (with a warning). Multi-page decks navigate via their own relative links, and every served HTML page gets the reload script, so auto-reload keeps working as you move between pages.
 
@@ -596,29 +655,44 @@ Notes:
 While `slideless dev` is running, you can leave change-requests directly on the rendered deck — handy for review passes before a `push`.
 
 - **Select any text** in the deck → an **+ Add note** button appears → click it, type your remark, and **Save**.
-- Notes are stored in **`.slideless/annotations.json`** at the deck root. That folder is created on first save and is **never uploaded** by `push` (it's in the built-in ignore list), and writing to it does **not** trigger a live-reload.
-- A 📝 badge (bottom-right) shows the count of unprocessed notes. Click it to open a side panel where you can **edit**, **remove**, **jump to** a note's location, and switch between **New** and **Previous** (a `processed` flag on each note).
+- Notes are stored in **`.slideless/annotations.json`** at the deck root. That folder is created on first save and is **never uploaded** by `push` (it's in the built-in ignore list), it's gitignored, and writing to it does **not** trigger a live-reload.
+- A 📝 badge (bottom-right) shows the count of open notes. Click it to open a side panel with **Open** and **Done** tabs (driven by each note's `processed` flag), where you can **edit**, **remove**, and **jump to** a note's location.
 - Each note records the selected text, a little surrounding context, and the nearest slide/panel (`data-slide` / `data-panel`) plus its heading — enough for a downstream process to locate and apply the change. Applying the changes is **not** part of the CLI; the file is purely a gathering surface.
+- Every note is **authored** and **version-tied**. The author is your API key's name (override with `--author "<name>"` or the `SLIDELESS_AUTHOR` env var). The version (`deckVersion`) is the pulled version recorded in `slideless.json`, or `null` if the deck has never been pushed.
 - **Jump-to is best-effort.** If you delete the slide a note was attached to, the note stays in the panel and jump-to simply reports "location not found" — it never breaks.
 - Disable the overlay entirely with `--no-annotate`.
 
-Each annotation looks like:
+<Note>
+  This same file also collects **reviewer** feedback. When you run [`slideless pull-annotations`](#slideless-pull-annotations-presentationid), notes left by people you gave an [annotator link](#slideless-share-presentationid) to are merged into the very same `.slideless/annotations.json` (tagged `source: "hosted"`). See the [Annotations guide](/guides/annotations) for the full review loop.
+</Note>
+
+The file is `{ "version": 2, "annotations": [ ... ] }`. Each annotation looks like:
 
 ```json
 {
-  "id": "9b1c…",
-  "createdAt": "2026-06-14T10:00:00.000Z",
+  "id": "uuid",
+  "createdAt": "2026-06-15T10:00:00.000Z",
   "processed": false,
   "note": "Make this headline punchier",
   "entryFile": "index.html",
-  "selectedText": "Our architecture scales",
-  "context": { "before": "…", "after": "…" },
+  "selectedText": "the exact selected string",
+  "context": { "before": "~40 chars", "after": "~40 chars" },
   "anchor": {
     "container": { "kind": "slide", "index": 3, "heading": "Architecture" },
     "selector": "section[data-slide=\"3\"] .headline"
-  }
+  },
+  "deckVersion": 1,
+  "source": "local",
+  "author": "Marie (Acme key)"
 }
 ```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `processed` | boolean | `false` = **Open** tab, `true` = **Done** tab. |
+| `deckVersion` | `number \| null` | The deck version the note was left against (from `slideless.json`), or `null` if never pushed. |
+| `source` | `"local" \| "hosted"` | `"local"` = left here via `slideless dev`; `"hosted"` = pulled from a reviewer via [`pull-annotations`](#slideless-pull-annotations-presentationid). |
+| `author` | `string \| null` | Who left the note. For local notes, your `--author` / key name; for hosted notes, the annotator link's name. |
 
 ## Error shape (`--json`)
 

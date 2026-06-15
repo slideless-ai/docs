@@ -91,6 +91,7 @@
           "guides/custom-fonts",
           "guides/uploading-via-api",
           "guides/sharing-via-email",
+          "guides/annotations",
           "guides/publishing-to-marketplace",
           "guides/remixing-templates"
         ]
