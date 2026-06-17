@@ -8,7 +8,7 @@ Slideless distinguishes two kinds of sharing:
 | Mode | What it grants | How to enable |
 |---|---|---|
 | **Viewer tokens** | Read-only URLs anyone can open in a browser | `slideless share <id>` mints a token |
-| **Dev collaboration** | Edit access — another authenticated user can push new versions | `slideless invite <id> --email <addr>` |
+| **Dev collaboration** | Edit access plus sharing management — an authenticated collaborator can push versions and manage the deck's share links | `slideless invite <id> --email <addr>` |
 
 This page covers dev collaboration. For viewer tokens, see [Share tokens](/concepts/share-tokens).
 
@@ -16,8 +16,8 @@ This page covers dev collaboration. For viewer tokens, see [Share tokens](/conce
 
 In v0.5, every presentation has exactly one **owner** and zero or more **dev** collaborators.
 
-- **owner** — the original creator. Can push, pull, share, unshare, invite, uninvite, delete.
-- **dev** — invited collaborator. Can pull and push new versions. Cannot mint viewer tokens, invite others, or delete the deck.
+- **owner** — the original creator. Can do everything, including invite/uninvite collaborators, delete the deck, and publish to the marketplace.
+- **dev** — invited collaborator. Can pull, push new versions, mint viewer + annotator links, pin tokens, share by email, and pull annotations. Can revoke only links they created. **Cannot** invite/remove other collaborators, revoke all links at once, delete the deck, or publish to the marketplace.
 
 The role enum is future-proof: `viewer` and `admin` will slot in later without a migration.
 

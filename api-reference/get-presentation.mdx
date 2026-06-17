@@ -133,7 +133,7 @@ for (const t of info.tokens) {
 |---|---|---|---|
 | `400` | `invalid-argument` | Missing `presentationId` in path | Include the share ID after the slash |
 | `401` | `unauthenticated` | Missing or invalid API key | Set `Authorization` |
-| `403` | `permission-denied` | Key's user is not the owner | Use a key from the owner's account |
+| `403` | `permission-denied` | Key's user is not the owner or an active collaborator | Use a key from the owner's or a collaborator's account |
 | `404` | `not-found` | No presentation with that ID | Verify the ID via `listMyPresentations` |
 | `405` | `method-not-allowed` | Used POST/PUT/etc. | Use `GET` |
 | `500` | `internal` | Backend error | Retry with backoff |

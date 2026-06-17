@@ -97,7 +97,7 @@ Example:
 | 400 | `message-too-long` | `message` >2000 chars |
 | 400 | `invalid-argument` | Invalid `presentationId`, subject too long, unknown `tokenId` |
 | 401 | `unauthenticated` | Missing/invalid API key |
-| 403 | `permission-denied` | Key doesn't belong to the share's org |
+| 403 | `permission-denied` | Key isn't the owner, the share's org, or an active collaborator |
 | 404 | `not-found` | `presentationId` doesn't exist |
 | 429 | `rate-limited` | Too many calls |
 | 500 | `internal` | Backend error |

@@ -19,7 +19,7 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/unsharePresentation
 
 ## Authentication
 
-`Authorization: Bearer <key>` — owner only.
+`Authorization: Bearer <key>` — owner, or an active dev collaborator. A dev may revoke only a single token they created (pass `tokenId`); revoking all tokens at once is owner-only.
 
 ## Request body
 
@@ -47,6 +47,6 @@ POST https://europe-west1-slideless-ai.cloudfunctions.net/unsharePresentation
 | Status | Code | Cause |
 |---|---|---|
 | 401 | `unauthenticated` | Missing/invalid key |
-| 403 | `permission-denied` | Not the owner |
+| 403 | `permission-denied` | Not the owner or an active collaborator (or a dev trying to revoke all / another's link) |
 | 404 | `not-found` | `presentationId` unknown |
 | 404 | `token-not-found` | `tokenId` not on that deck |

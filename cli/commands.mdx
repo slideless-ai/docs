@@ -218,7 +218,7 @@ Owners and active dev collaborators can pull. Every byte is re-hashed on the cli
 
 ### `slideless share <presentationId>`
 
-Mint a public viewer URL. Owner-only.
+Mint a public viewer URL. Owner or active dev collaborator.
 
 ```bash
 slideless share 01HXYZ...
@@ -247,11 +247,11 @@ Revoke an annotator link the same way as any token — [`slideless unshare`](#sl
 
 ### `slideless unshare <presentationId>`
 
-Revoke viewer URLs. The deck itself stays — you can mint new URLs later.
+Revoke viewer URLs. The deck itself stays — you can mint new URLs later. Owner or active dev collaborator, with one limit: a dev may only revoke a single link **they created** (`--token`), while the owner may revoke any link or all at once.
 
 ```bash
-slideless unshare 01HXYZ...                      # revoke every token
-slideless unshare 01HXYZ... --token 01H...       # revoke just one
+slideless unshare 01HXYZ...                      # revoke every token (owner only)
+slideless unshare 01HXYZ... --token 01H...       # revoke just one (owner, or dev for own links)
 ```
 
 ### `slideless invite <presentationId>`
@@ -387,7 +387,7 @@ Recipients cannot change their own version — there is no query-param override.
 
 ### `slideless pull-annotations [presentationId]`
 
-Pull the notes reviewers left through an [annotator link](#slideless-share-presentationid) and merge them into your local **`.slideless/annotations.json`**. Owner-only.
+Pull the notes reviewers left through an [annotator link](#slideless-share-presentationid) and merge them into your local **`.slideless/annotations.json`**. Owner or active dev collaborator.
 
 ```bash
 # From inside a linked deck folder — resolves the id from slideless.json,

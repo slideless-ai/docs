@@ -1,6 +1,6 @@
 ---
 title: "POST /setTokenVersionMode"
-description: "Pin a share token to a specific version or put it back on auto-follow-latest. Owner-only."
+description: "Pin a share token to a specific version or put it back on auto-follow-latest. Owner or active dev collaborator."
 ---
 
 <Note>
@@ -73,7 +73,7 @@ Example — unpin (follow latest):
 |---|---|---|
 | `400` | `invalid-argument` | Bad `versionMode` shape, `version` > `currentVersion`, or missing fields |
 | `401` | `unauthenticated` | Missing/invalid API key |
-| `403` | `permission-denied` | Key lacks `presentations:write`, or not the presentation's owner |
+| `403` | `permission-denied` | Key lacks `presentations:write`, or not the owner / an active collaborator |
 | `404` | `not-found` | `presentationId` or `tokenId` doesn't exist |
 | `410` | `revoked` | Cannot modify a revoked token |
 

@@ -58,7 +58,7 @@ To collect notes from someone else, give them an **annotator link** — a share 
     Send the URL. Reviewers open it and get the same select-text → add-note overlay — no install, no account. Their notes are stored server-side against the presentation, authored with the link's name.
   </Step>
   <Step title="Pull the notes into your deck">
-    From inside the deck folder, run [`slideless pull-annotations`](/cli/commands#slideless-pull-annotations-presentationid) (owner-only):
+    From inside the deck folder, run [`slideless pull-annotations`](/cli/commands#slideless-pull-annotations-presentationid) (owner or active dev collaborator):
     ```bash
     slideless pull-annotations            # resolves id from slideless.json, defaults to its pulled version
     slideless pull-annotations <id>       # explicit id → pull across all versions
