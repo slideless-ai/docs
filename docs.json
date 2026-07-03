@@ -101,7 +101,7 @@
         "pages": ["skills/overview"]
       },
       {
-        "group": "Claude Desktop (MCP)",
+        "group": "MCP Server",
         "pages": ["integrations/claude-desktop-mcp"]
       },
       {
