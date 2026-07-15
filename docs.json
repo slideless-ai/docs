@@ -102,7 +102,7 @@
       },
       {
         "group": "MCP Server",
-        "pages": ["integrations/claude-desktop-mcp"]
+        "pages": ["integrations/mcp-server"]
       },
       {
         "group": "Advanced: HTTP API",
@@ -168,6 +168,12 @@
   "contextual": {
     "options": ["copy", "view", "claude", "cursor", "mcp"]
   },
+  "redirects": [
+    {
+      "source": "/integrations/claude-desktop-mcp",
+      "destination": "/integrations/mcp-server"
+    }
+  ],
   "footer": {
     "socials": {
       "github": "https://github.com/slideless-ai"

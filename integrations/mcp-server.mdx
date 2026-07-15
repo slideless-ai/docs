@@ -1,17 +1,18 @@
 ---
-title: "Use Slideless in Claude Desktop"
-description: "Add the Slideless MCP connector to Claude Desktop or claude.ai. Sign in with your Slideless account to create, upload, share, and manage presentations directly from your chats — no CLI required."
+title: "The Slideless MCP server"
+description: "Connect any MCP host — Claude Desktop, claude.ai, ChatGPT desktop, Cursor — to Slideless. Sign in with your Slideless account to create, upload, share, and manage presentations directly from your chats — no CLI required."
 ---
 
-Talk to Slideless from inside any chat in Claude Desktop, claude.ai, ChatGPT desktop, or any other host that supports MCP custom connectors. No CLI install, no API key to copy. You add the connector once, sign in to Slideless when prompted, and ask Claude to do things like *"upload this HTML as a deck"* or *"share my latest presentation with bob@acme.com"*.
+Slideless ships a remote MCP server at `https://mcp.slideless.ai/mcp`. Add it to any host that supports MCP custom connectors — Claude Desktop, claude.ai, ChatGPT desktop, Cursor — and talk to Slideless from inside your chats. No CLI install, no API key to copy. You add the connector once, sign in to Slideless when prompted, and ask things like *"upload this HTML as a deck"* or *"share my latest presentation with bob@acme.com"*.
 
 <Note>
 Using Slideless from the **terminal**? See the [`slideless` CLI](/cli/overview).
-Using it from **Claude Code or Cursor**? See the [plugin skills](/skills/overview).
-The MCP connector below is for the **Claude desktop app** and the **claude.ai web app** — anywhere that has a built-in "Custom Connectors" panel.
+Using it from **Claude Code or Cursor**? The [plugin skills](/skills/overview) are the richer path, though the MCP server works there too.
 </Note>
 
 ## Add the connector
+
+The walkthrough below uses Claude Desktop; the same URL works in any MCP host (see [Other MCP hosts](#other-mcp-hosts)).
 
 In Claude Desktop:
 
